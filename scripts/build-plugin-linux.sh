@@ -42,14 +42,6 @@ echo "==> Instalado en: $DEST"
 
 # ── Instrucciones ─────────────────────────────────────────────────────────────
 echo ""
-echo "┌─────────────────────────────────────────────────────────────┐"
-echo "│  Plugin instalado. Pasos siguientes:                        │"
-echo "│                                                             │"
-echo "│  1. Abrí Mumble                                             │"
-echo "│  2. Configuración → Plugins                                 │"
-echo "│  3. Activá 'RMTFAR' en la lista                             │"
-echo "│  4. En otra terminal, arrancá el bridge:                    │"
-echo "│       cargo run -p rmtfar-bridge                            │"
-echo "│  5. Simulá jugadores con el test-client:                    │"
-echo "│       cargo run -p rmtfar-test-client -- --orbit --ptt-local│"
-echo "└─────────────────────────────────────────────────────────────┘"
+# ── Empaquetar como .mumble_plugin (requerido por Mumble 1.4.0+) ──────────────
+echo "==> Generando paquete .mumble_plugin..."
+"$SCRIPT_DIR/package-plugin-linux.sh"
