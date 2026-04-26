@@ -145,9 +145,10 @@ check_sqf() {
         issues+=("unbalanced braces (open=$o close=$c)")
     fi
 
-    # Missing semicolon at end of params/private lines (common typo)
-    if grep -En '^(params|private)\s+\[' "$file" | grep -qv ';$'; then
-        issues+=("possible missing semicolon after params/private")
+    # Missing semicolon: params/private on a single line without closing ;
+    # (multi-line params are fine — the ; lands on the ]; line)
+    if grep -En '^(params|private)\s+\[.*\]$' "$file" | grep -qv ';$'; then
+        issues+=("possible missing semicolon after single-line params/private")
     fi
 
     if [[ ${#issues[@]} -gt 0 ]]; then
