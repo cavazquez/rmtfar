@@ -23,6 +23,7 @@ RELEASE=1 bash scripts/build-all.sh
 RELEASE=1 bash scripts/build-extension.sh
 TARGET=windows RELEASE=1 bash scripts/build-plugin.sh
 RELEASE=1 bash scripts/build-bridge-windows.sh
+bash scripts/pack-pbo.sh
 
 # Copiar binarios
 cp target/x86_64-pc-windows-gnu/release/rmtfar_x64.dll \

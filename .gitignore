@@ -3,3 +3,4 @@
 **/*.dll.bak
 Cargo.lock
 *.log
+*.pbo
