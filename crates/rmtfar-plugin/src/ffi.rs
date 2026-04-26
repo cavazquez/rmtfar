@@ -67,17 +67,14 @@ struct MumbleAPI {
 }
 
 // ---------------------------------------------------------------------------
-// Globals: Mumble API pointer and our own plugin ID
+// Globals: extracted function pointers (NOT the struct pointer — the struct
+// is stack-allocated inside Mumble's Plugin::init() and becomes invalid after
+// that function returns, so we copy what we need immediately).
 // ---------------------------------------------------------------------------
 
-static MUMBLE_API: OnceLock<usize> = OnceLock::new(); // raw ptr stored as usize
+static API_FREE_MEMORY: OnceLock<MumbleFnFreeMemory> = OnceLock::new();
+static API_GET_USER_NAME: OnceLock<MumbleFnGetUserName> = OnceLock::new();
 static PLUGIN_ID: OnceLock<mumble_plugin_id_t> = OnceLock::new();
-
-fn api() -> Option<&'static MumbleAPI> {
-    let addr = MUMBLE_API.get()?;
-    // Safety: Mumble guarantees the API struct outlives the plugin.
-    Some(unsafe { &*(*addr as *const MumbleAPI) })
-}
 
 fn plugin_id() -> mumble_plugin_id_t {
     *PLUGIN_ID.get().unwrap_or(&0)
@@ -162,14 +159,20 @@ pub unsafe extern "C" fn mumble_getDescription() -> MumbleStringWrapper {
     }
 }
 
-/// Stores the Mumble API function-pointer table for later use.
+/// Extracts and stores the function pointers we need from the Mumble API struct.
+///
+/// Mumble passes a **stack-local** API struct, so we must copy what we need
+/// here rather than storing the pointer (the struct is gone after init returns).
 ///
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn mumble_registerAPIFunctions(api: *const c_void) {
-    if !api.is_null() {
-        let _ = MUMBLE_API.set(api as usize);
+    if api.is_null() {
+        return;
     }
+    let api_struct = &*(api.cast::<MumbleAPI>());
+    let _ = API_FREE_MEMORY.set(api_struct.free_memory);
+    let _ = API_GET_USER_NAME.set(api_struct.get_user_name);
 }
 
 /// # Safety
@@ -240,17 +243,27 @@ pub unsafe extern "C" fn mumble_onUserAdded(
     connection: mumble_connection_t,
     user_id: mumble_userid_t,
 ) {
-    let Some(api) = api() else { return };
+    let (Some(get_user_name), Some(free_memory)) = (API_GET_USER_NAME.get(), API_FREE_MEMORY.get())
+    else {
+        tracing::warn!(user_id, "RMTFAR: Mumble API not ready in onUserAdded");
+        return;
+    };
+
     let mut name_ptr: *const c_char = std::ptr::null();
-    let rc = (api.get_user_name)(plugin_id(), connection, user_id, &raw mut name_ptr);
+    let rc = get_user_name(
+        plugin_id(),
+        connection,
+        user_id,
+        std::ptr::addr_of_mut!(name_ptr),
+    );
     if rc == MUMBLE_STATUS_OK && !name_ptr.is_null() {
         if let Ok(name) = std::ffi::CStr::from_ptr(name_ptr).to_str() {
             let name = name.to_string();
             tracing::info!(user_id, %name, "RMTFAR: user added — registering identity");
             plugin().state.register_session(user_id, name);
         }
-        // Free the string allocated by Mumble
-        (api.free_memory)(plugin_id(), name_ptr.cast::<c_void>());
+        // Free the string Mumble allocated for us
+        free_memory(plugin_id(), name_ptr.cast::<c_void>());
     }
 }
 
