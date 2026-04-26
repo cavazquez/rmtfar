@@ -177,8 +177,14 @@ impl Plugin {
                 tracing::debug!(uid = %sender.steam_id, dist, "out of radio range — muted");
                 return false;
             }
-            tracing::debug!(uid = %sender.steam_id, dist, "radio — applying DSP");
-            dsp::apply_radio_effect(samples, sample_rate, dist, sender.radio_range_m);
+            let signal_quality = 1.0 - (dist / sender.radio_range_m).clamp(0.0, 1.0);
+            tracing::debug!(
+                uid = %sender.steam_id,
+                dist,
+                signal_quality,
+                "radio — applying DSP"
+            );
+            dsp::apply_radio_effect(samples, sample_rate, signal_quality);
             true
         } else if sender.transmitting_local {
             if dist > LOCAL_VOICE_RANGE_M {
