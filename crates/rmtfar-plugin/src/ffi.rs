@@ -4,10 +4,11 @@
 
 use crate::plugin;
 use std::ffi::{c_char, c_void};
-use std::os::raw::{c_int, c_uint};
+use std::os::raw::c_int;
 
 pub type mumble_plugin_id_t = u32;
 pub type mumble_userid_t = u32;
+pub type mumble_connection_t = i32;
 pub type mumble_error_t = c_int;
 
 pub const MUMBLE_STATUS_OK: mumble_error_t = 0;
@@ -188,10 +189,27 @@ pub unsafe extern "C" fn mumble_onUserIdentityChanged(
 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn mumble_onServerConnected(_conn: c_uint) {}
+pub unsafe extern "C" fn mumble_onServerConnected(_conn: mumble_connection_t) {
+    tracing::info!("RMTFAR: connected to server");
+}
 
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn mumble_onServerDisconnected(_conn: c_uint) {
+pub unsafe extern "C" fn mumble_onServerDisconnected(_conn: mumble_connection_t) {
+    tracing::info!("RMTFAR: disconnected from server");
     plugin().state = crate::state::PluginState::default();
+}
+
+/// Fired by Mumble whenever any user starts or stops talking.
+/// `talking_state` values: 0 = passive, 1 = talking, 2 = shouting, 3 = whispering.
+/// This is the simplest callback to verify that Mumble is calling our plugin at all.
+///
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn mumble_onUserTalkingStateChanged(
+    _conn: mumble_connection_t,
+    user_id: mumble_userid_t,
+    talking_state: c_int,
+) {
+    tracing::info!(user_id, talking_state, "RMTFAR: talking state changed");
 }
