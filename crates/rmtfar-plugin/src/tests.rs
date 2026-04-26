@@ -14,7 +14,7 @@ use crate::Plugin;
 // ---------------------------------------------------------------------------
 
 const LOCAL_ID: &str = "jugador2";
-const SENDER_ID: &str = "cristian";
+const SENDER_ID: &str = "Jugador1";
 const SENDER_SESSION: u32 = 42;
 
 /// Create a minimal `RadioStateMessage`.
