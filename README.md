@@ -1,96 +1,108 @@
-# RMTFAR — Radio Mumble Task Force Arma Radio
+# 📻 RMTFAR — Radio Mumble Task Force Arma Radio
 
-Open source TFAR-style radio mod for Arma 3 using Mumble/Murmur instead of TeamSpeak.
+> Open-source TFAR-style radio mod for Arma 3, powered by Mumble/Murmur instead of TeamSpeak.
 
-**Full Rust stack. GPLv3 licensed.**
+<div align="center">
+
+[![Rust](https://img.shields.io/badge/Rust-1.75+-f74c00?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
+[![Mumble](https://img.shields.io/badge/Mumble-1.4.0+-darkgreen?logo=mumble&logoColor=white)](https://www.mumble.info/)
+[![Arma 3](https://img.shields.io/badge/Arma_3-SQF-8B5C14)](https://store.steampowered.com/app/107410/Arma_3/)
+
+</div>
 
 ---
 
-## What is this?
+## 🛠️ Tech Stack
 
-RMTFAR replicates the core experience of [Task Force Arrowhead Radio (TFAR)](https://github.com/michail-nikolaev/task-force-arma-3-radio) — directional proximity voice, radio channels, frequencies, and transmission effects — but built entirely on [Mumble](https://www.mumble.info/) and [Murmur](https://www.mumble.info/documentation/mumble-server/) as the voice transport.
-
-No TeamSpeak. No Discord. No unofficial APIs. Just Mumble.
+| | Tecnología | Rol |
+|---|---|---|
+| 🦀 | **Rust** | Extension DLL, bridge y plugin de Mumble |
+| 🎮 | **SQF** | Scripts dentro de Arma 3 |
+| 🎙️ | **Mumble 1.4.0+** | Transporte de voz (cliente) |
+| 🖥️ | **Murmur** | Servidor de voz |
+| 📦 | **serde / serde_json** | Serialización del protocolo |
+| 🔊 | **dasp** | DSP: filtro bandpass, soft-clip y ruido de radio |
+| 🧵 | **UDP** | Comunicación local entre componentes |
+| 🧠 | **MumbleLink** | Shared memory para audio posicional |
+| ⚙️ | **C FFI** | Bindings al API de plugin de Mumble (1.4.0) |
+| 🔒 | **GPLv3** | Licencia compatible con Mumble y ACRE2 |
 
 ---
 
-## Architecture
-
-The system is split into three independent components:
+## 🗺️ Arquitectura
 
 ```
 ┌──────────────────────────────┐
-│  Arma 3 Client               │
+│  🎮 Arma 3 Client            │
 │  ┌──────────────────────┐    │
 │  │ SQF Scripts (@rmtfar)│    │
 │  │  getPos, getDir, PTT │    │
 │  └──────────┬───────────┘    │
 │             │ callExtension  │
 │  ┌──────────▼───────────┐    │
-│  │ Extension DLL (Rust) │    │
-│  │  rmtfar_x64.dll      │    │
+│  │ 🦀 Extension DLL     │    │
+│  │   rmtfar_x64.dll     │    │
 │  └──────────┬───────────┘    │
 └─────────────┼────────────────┘
               │ UDP :9500 (localhost)
 ┌─────────────▼────────────────┐
-│  RMTFAR Bridge (Rust)        │
-│  - Receives player state     │
-│  - Writes Mumble Link shm    │
-│  - Broadcasts radio state    │
-│    to plugin via UDP :9501   │
+│  🦀 RMTFAR Bridge            │
+│  - Recibe estado del jugador │
+│  - Escribe MumbleLink (shm)  │
+│  - Broadcast radio → :9501   │
 └──────┬───────────────────────┘
        │
-       ├─── SharedMem "MumbleLink" ──────────────┐
-       │                                          │
-       └─── UDP :9501 ────────────────────────────┤
-                                                  │
-┌─────────────────────────────────────────────────▼──┐
-│  Mumble Client                                      │
+       ├─── 🧠 SharedMem "MumbleLink" ──────────┐
+       │                                         │
+       └─── 📡 UDP :9501 ───────────────────────┤
+                                                 │
+┌────────────────────────────────────────────────▼──┐
+│  🎙️ Mumble Client                                  │
 │  ┌──────────────────────────────────────────────┐  │
-│  │ RMTFAR Plugin (Rust, via rust-mumble-sys)     │  │
-│  │  - Reads MumbleLink (positional audio)        │  │
-│  │  - Reads radio state from bridge              │  │
-│  │  - Audio callbacks: mute/unmute per user      │  │
-│  │  - DSP: bandpass filter + noise (radio FX)   │  │
+│  │ 🦀 RMTFAR Plugin (Rust + C FFI)              │  │
+│  │  - Lee MumbleLink (audio posicional)         │  │
+│  │  - Recibe radio state del bridge             │  │
+│  │  - Audio callbacks: mute/unmute por usuario  │  │
+│  │  - 🔊 DSP: bandpass + soft-clip + ruido      │  │
 │  └──────────────────────────────────────────────┘  │
-└─────────────────────────────────────────────────────┘
+└───────────────────────────────────────────────────┘
 ```
 
-| Component | Lives in | Language | Role |
-|-----------|----------|----------|------|
-| `@rmtfar` Arma mod | Arma 3 | SQF + Rust DLL | Capture and send player state |
-| Bridge | Local machine | Rust | Translate game state → Mumble data |
-| Mumble Plugin | Mumble client | Rust | Process audio per user |
+| Componente | Dónde vive | Lenguaje | Rol |
+|---|---|---|---|
+| `@rmtfar` (mod Arma) | Arma 3 | SQF + DLL Rust | Captura y envía estado del jugador |
+| Bridge | Máquina local | 🦀 Rust | Traduce estado de juego → datos Mumble |
+| Plugin Mumble | Cliente Mumble | 🦀 Rust + C FFI | Procesa audio por usuario |
 
 ---
 
-## Phases
+## 🚀 Fases de desarrollo
 
-### Phase 1 — Proximity Voice (current)
-- Arma 3 sends position and direction to the local bridge via UDP
-- Bridge writes to Mumble Link shared memory
-- Mumble applies positional (directional + distance) audio automatically
-- No radios yet
+### ✅ Fase 1 — Voz por proximidad
+- Arma 3 envía posición y dirección al bridge vía UDP
+- El bridge escribe en la shared memory MumbleLink
+- Mumble aplica audio posicional (dirección + distancia) automáticamente
 
-### Phase 2 — Simple Radio
-- Separate push-to-talk for radio
-- Single frequency per player
-- Players only hear each other if on the same frequency
-- Basic radio DSP effect (bandpass filter + soft clip + noise)
+### ✅ Fase 2 — Radio simple
+- Push-to-talk separado para radio
+- Frecuencia única por jugador
+- Solo escuchan entre sí los jugadores en la misma frecuencia
+- Efecto DSP de radio (filtro bandpass + soft-clip + ruido)
 
-### Phase 3 — TFAR-style Logic
-- Short range (SR) and long range (LR) radios with different reach
-- Multiple channels per frequency
-- Signal interference by distance
-- Vehicle radios
-- Dead / unconscious state handling
-- Faction frequency presets (BLUFOR, OPFOR, INDEP)
+### ✅ Fase 3 — Lógica tipo TFAR
+- Radios de corto alcance (SR) y largo alcance (LR)
+- Múltiples canales por frecuencia
+- Interferencia de señal por distancia
+- Radios de vehículo
+- Estado muerto / inconsciente
+- Presets de frecuencia por facción (BLUFOR, OPFOR, INDEP)
 
 ---
 
-## Message Protocol
+## 📨 Protocolo de mensajes
 
-### Arma 3 → Bridge (UDP :9500)
+### 🎮 Arma 3 → Bridge (UDP :9500)
 
 ```json
 {
@@ -107,17 +119,12 @@ The system is split into three independent components:
   "ptt_local": false,
   "ptt_radio_sr": false,
   "ptt_radio_lr": false,
-  "radio_sr": {
-    "freq": "152.000",
-    "channel": 1,
-    "volume": 1.0,
-    "enabled": true
-  },
+  "radio_sr": { "freq": "152.000", "channel": 1, "volume": 1.0, "enabled": true },
   "radio_lr": null
 }
 ```
 
-### Bridge → Plugin (UDP :9501)
+### 🦀 Bridge → Plugin (UDP :9501)
 
 ```json
 {
@@ -142,68 +149,97 @@ The system is split into three independent components:
 
 ---
 
-## Repository Structure
+## 📁 Estructura del repositorio
 
 ```
 rmtfar/
-├── Cargo.toml                   # Rust workspace
-├── LICENSE                      # GPLv3
-├── README.md
-├── docs/
+├── 📄 Cargo.toml                  # Workspace de Rust
+├── 📄 LICENSE                     # GPLv3
+├── 📄 README.md
+├── 🔍 check.sh                    # Quality gate: fmt + clippy + tests + SQF lint
+├── 📂 .github/
+│   └── workflows/
+│       └── dep-audit.yml          # Auditoría anual de dependencias (diciembre)
+├── 📚 docs/
 │   ├── architecture.md
 │   ├── protocol.md
 │   ├── building.md
 │   └── setup-guide.md
-├── crates/
-│   ├── rmtfar-protocol/         # Shared types (PlayerState, etc.)
-│   ├── rmtfar-extension/        # Arma 3 extension DLL (cdylib)
-│   ├── rmtfar-bridge/           # Local bridge process
-│   ├── rmtfar-plugin/           # Mumble plugin (cdylib)
-│   └── rmtfar-test-client/      # Simulator for testing without Arma
-├── arma-mod/
-│   └── @rmtfar/                 # Arma 3 mod files + prebuilt DLL
-└── scripts/
+├── 📦 crates/
+│   ├── rmtfar-protocol/           # Tipos compartidos (PlayerState, RadioStateMessage…)
+│   ├── rmtfar-extension/          # DLL para Arma 3 (cdylib, C ABI)
+│   ├── rmtfar-bridge/             # Proceso bridge local
+│   ├── rmtfar-plugin/             # Plugin de Mumble (cdylib, C FFI)
+│   └── rmtfar-test-client/        # Simulador sin necesidad de Arma 3
+├── 🪖 arma-mod/
+│   └── @rmtfar/                   # Mod de Arma 3 + DLL precompilada
+└── 🔧 scripts/
     ├── build-all.sh
-    ├── build-extension.sh       # Cross-compile to Windows
+    ├── build-extension.sh         # Cross-compile a Windows (x64)
+    ├── build-plugin.sh
     └── package-release.sh
 ```
 
 ---
 
-## Dependencies
+## 📦 Dependencias
 
-### Rust
-- `serde` + `serde_json` — serialization
-- `anyhow` — error handling
-- [`mumble-link`](https://crates.io/crates/mumble-link) — Mumble Link shared memory helper
-- [`rust-mumble-sys`](https://github.com/Dessix/rust-mumble-sys) — Mumble plugin C API bindings
-- `dasp` — DSP for radio audio effects
-- `windows` — Windows shared memory (bridge)
+### 🦀 Rust
 
-### Arma 3
-- [CBA_A3](https://github.com/CBATeam/CBA_A3) — recommended for keybinds and settings
-- [ACE3](https://github.com/acemod/ACE3) — optional, unconscious state integration
+| Crate | Uso |
+|---|---|
+| `serde` + `serde_json` | Serialización del protocolo UDP |
+| `anyhow` | Manejo de errores ergonómico |
+| `mumble-link` | Shared memory MumbleLink (audio posicional) |
+| `rust-mumble-sys` | Bindings al API C de plugins de Mumble 1.4 |
+| `dasp` | DSP: filtro bandpass, soft-clip, generación de ruido |
+| `windows` | Shared memory en Windows (bridge) |
+| `libc` | Shared memory en Linux/macOS (bridge) |
+| `clap` | CLI del bridge y del test-client |
+| `tracing` | Logging estructurado |
 
-### Voice Server
-- [Mumble](https://www.mumble.info/) 1.4.0+
-- [Murmur](https://www.mumble.info/documentation/mumble-server/) (any recent version)
+### 🎮 Arma 3
+
+| Mod | Requerido | Uso |
+|---|---|---|
+| [CBA_A3](https://github.com/CBATeam/CBA_A3) | Recomendado | Keybinds y settings |
+| [ACE3](https://github.com/acemod/ACE3) | Opcional | Estado inconsciente |
+
+### 🎙️ Voz
+
+| Software | Versión mínima |
+|---|---|
+| [Mumble](https://www.mumble.info/) | 1.4.0+ |
+| [Murmur](https://www.mumble.info/documentation/mumble-server/) | Cualquier versión reciente |
 
 ---
 
-## Similar Projects
+## 🔍 Calidad de código
 
-| Project | Voice Backend | Language |
-|---------|--------------|----------|
-| [TFAR](https://github.com/michail-nikolaev/task-force-arma-3-radio) | TeamSpeak 3 | C++/SQF |
-| [ACRE2](https://github.com/IDI-Systems/acre2) | TeamSpeak 3 | C++/SQF |
-| [FGCom-mumble](https://github.com/hbeni/fgcom-mumble) | Mumble | C++/Lua |
-| **RMTFAR** | **Mumble** | **Rust/SQF** |
+```bash
+./check.sh        # fmt + clippy + tests + doc + SQF lint
+cargo fmt --all   # Formateo automático
+cargo test --workspace
+```
+
+El CI ejecuta una [auditoría de seguridad](`.github/workflows/dep-audit.yml`) automática cada **1 de diciembre**, o cuando se activa manualmente desde la pestaña Actions.
 
 ---
 
-## License
+## 🔗 Proyectos similares
 
-GPLv3 — see [LICENSE](LICENSE).
+| Proyecto | Backend de voz | Lenguaje |
+|---|---|---|
+| [TFAR](https://github.com/michail-nikolaev/task-force-arma-3-radio) | TeamSpeak 3 | C++ / SQF |
+| [ACRE2](https://github.com/IDI-Systems/acre2) | TeamSpeak 3 | C++ / SQF |
+| [FGCom-mumble](https://github.com/hbeni/fgcom-mumble) | Mumble | C++ / Lua |
+| **RMTFAR** | **Mumble** | **🦀 Rust / SQF** |
 
-Compatible with Mumble (GPLv3) and ACRE2 (GPLv3).
-Does not use Bohemia Interactive assets, so APL-SA does not apply.
+---
+
+## 📜 Licencia
+
+**GPLv3** — ver [LICENSE](LICENSE).
+
+Compatible con Mumble (GPLv3) y ACRE2 (GPLv3).  
+No utiliza assets de Bohemia Interactive, por lo que la APL-SA no aplica.
