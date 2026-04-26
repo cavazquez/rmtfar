@@ -180,7 +180,13 @@ impl Plugin {
             audio::apply_volume(samples, volume);
             true
         } else {
-            tracing::debug!(uid = %sender.steam_id, "not transmitting — muted");
+            if !sender.alive {
+                tracing::debug!(uid = %sender.steam_id, "dead — muted");
+            } else if !sender.conscious {
+                tracing::debug!(uid = %sender.steam_id, "unconscious — muted");
+            } else {
+                tracing::debug!(uid = %sender.steam_id, "not transmitting — muted");
+            }
             false
         }
     }

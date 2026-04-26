@@ -52,8 +52,9 @@ fn main() -> Result<()> {
 
         println!(
             "[{:>8.2}s] tick={:<6} pos=[{:>8.1}, {:>8.1}, {:>6.1}] dir={:>5.1}° \
-             ptt_local={} ptt_sr={}",
-            elapsed, tick, pos[0], pos[1], pos[2], dir, config.ptt_local, config.ptt_radio_sr,
+             ptt_local={} ptt_sr={} alive={} conscious={}",
+            elapsed, tick, pos[0], pos[1], pos[2], dir,
+            config.ptt_local, config.ptt_radio_sr, config.alive, config.conscious,
         );
 
         tick += 1;
@@ -70,8 +71,8 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
         tick,
         pos,
         dir,
-        alive: true,
-        conscious: true,
+        alive: cfg.alive,
+        conscious: cfg.conscious,
         vehicle: String::new(),
         ptt_local: cfg.ptt_local,
         ptt_radio_sr: cfg.ptt_radio_sr,
@@ -99,6 +100,8 @@ struct Config {
     freq: String,
     channel: u8,
     radio_range_m: Option<f32>,
+    alive: bool,
+    conscious: bool,
 }
 
 impl Config {
@@ -151,6 +154,8 @@ fn parse_args(args: &[String]) -> Result<Config> {
     let mut freq = "152.000".to_string();
     let mut channel: u8 = 1;
     let mut radio_range_m: Option<f32> = None;
+    let mut alive = true;
+    let mut conscious = true;
 
     let mut i = 1usize;
     while i < args.len() {
@@ -193,6 +198,14 @@ fn parse_args(args: &[String]) -> Result<Config> {
                     .parse()
                     .context("--channel expects a channel number (1-8)")?;
             }
+            "--dead" => {
+                alive = false;
+                i += 1;
+            }
+            "--unconscious" => {
+                conscious = false;
+                i += 1;
+            }
             "--radio-range" => {
                 radio_range_m = Some(
                     next_arg(args, &mut i)?
@@ -220,6 +233,8 @@ fn parse_args(args: &[String]) -> Result<Config> {
         freq,
         channel,
         radio_range_m,
+        alive,
+        conscious,
     })
 }
 
@@ -246,6 +261,8 @@ fn print_help() {
     println!("  --ptt-radio           Activate SR radio PTT");
     println!("  --freq <freq>         SR radio frequency     (default: 152.000)");
     println!("  --channel <n>         SR radio channel 1-8              (default: 1)");
+    println!("  --dead                Simulate dead player (all PTT blocked)");
+    println!("  --unconscious         Simulate ACE unconscious (all PTT blocked)");
     println!("  --radio-range <m>     Override SR radio range in metres  (default: 5000)");
     println!("  --help                Print this help\n");
     println!("EXAMPLE - test proximity audio with two terminals:");
