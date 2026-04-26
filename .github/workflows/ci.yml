@@ -18,7 +18,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust (stable + componentes)
         uses: dtolnay/rust-toolchain@stable
@@ -67,7 +67,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -95,7 +95,7 @@ jobs:
           nm -D "$SO" | grep -E 'mumble_' | head -20
 
       - name: Upload plugin artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rmtfar-plugin-linux-x64
           path: target/release/librmtfar_plugin.so
@@ -109,7 +109,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust (stable + Windows target)
         uses: dtolnay/rust-toolchain@stable
@@ -147,7 +147,7 @@ jobs:
           echo "=== Todos los exports requeridos presentes ==="
 
       - name: Upload plugin artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rmtfar-plugin-windows-x64
           path: target/x86_64-pc-windows-gnu/release/rmtfar_plugin.dll
@@ -161,7 +161,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust (stable + Windows target)
         uses: dtolnay/rust-toolchain@stable
@@ -203,7 +203,7 @@ jobs:
         run: cp target/x86_64-pc-windows-gnu/release/rmtfar.dll rmtfar_x64.dll
 
       - name: Upload extension artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rmtfar-extension-windows-x64
           path: rmtfar_x64.dll
@@ -217,7 +217,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
@@ -237,7 +237,7 @@ jobs:
         run: cargo build --release -p rmtfar-bridge -p rmtfar-test-client
 
       - name: Upload bridge artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rmtfar-bridge-linux-x64
           path: |
