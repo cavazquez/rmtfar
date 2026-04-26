@@ -5,10 +5,13 @@
 <div align="center">
 
 [![CI](https://github.com/cavazquez/rmtfar/actions/workflows/ci.yml/badge.svg)](https://github.com/cavazquez/rmtfar/actions/workflows/ci.yml)
+[![Coverage](https://codecov.io/gh/cavazquez/rmtfar/graph/badge.svg)](https://codecov.io/gh/cavazquez/rmtfar)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-f74c00?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Mumble](https://img.shields.io/badge/Mumble-1.5%2B-darkgreen?logo=mumble&logoColor=white)](https://www.mumble.info/)
 [![Arma 3](https://img.shields.io/badge/Arma_3-SQF-8B5C14)](https://store.steampowered.com/app/107410/Arma_3/)
+[![GitHub Downloads](https://img.shields.io/github/downloads/cavazquez/rmtfar/total?label=descargas&logo=github)](https://github.com/cavazquez/rmtfar/releases)
+[![GitHub Stars](https://img.shields.io/github/stars/cavazquez/rmtfar?style=flat&logo=github)](https://github.com/cavazquez/rmtfar/stargazers)
 
 </div>
 
