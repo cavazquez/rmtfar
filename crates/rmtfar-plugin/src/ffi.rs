@@ -243,9 +243,14 @@ pub unsafe extern "C" fn mumble_onUserAdded(
     connection: mumble_connection_t,
     user_id: mumble_userid_t,
 ) {
+    tracing::info!(user_id, connection, "RMTFAR: mumble_onUserAdded called");
+
     let (Some(get_user_name), Some(free_memory)) = (API_GET_USER_NAME.get(), API_FREE_MEMORY.get())
     else {
-        tracing::warn!(user_id, "RMTFAR: Mumble API not ready in onUserAdded");
+        tracing::warn!(
+            user_id,
+            "RMTFAR: API fn ptrs not set — skipping name lookup"
+        );
         return;
     };
 
@@ -256,14 +261,22 @@ pub unsafe extern "C" fn mumble_onUserAdded(
         user_id,
         std::ptr::addr_of_mut!(name_ptr),
     );
+    tracing::info!(
+        user_id,
+        rc,
+        null = name_ptr.is_null(),
+        "RMTFAR: getUserName returned"
+    );
+
     if rc == MUMBLE_STATUS_OK && !name_ptr.is_null() {
         if let Ok(name) = std::ffi::CStr::from_ptr(name_ptr).to_str() {
             let name = name.to_string();
-            tracing::info!(user_id, %name, "RMTFAR: user added — registering identity");
+            tracing::info!(user_id, %name, "RMTFAR: registering identity");
             plugin().state.register_session(user_id, name);
         }
-        // Free the string Mumble allocated for us
         free_memory(plugin_id(), name_ptr.cast::<c_void>());
+    } else {
+        tracing::warn!(user_id, rc, "RMTFAR: getUserName failed or null ptr");
     }
 }
 
