@@ -62,11 +62,14 @@ pub unsafe extern "C" fn mumble_getName() -> MumbleStringWrapper {
 }
 
 /// # Safety
+/// Must return the Mumble API version the plugin was built against.
+/// Mumble 1.5.x only supports plugins requesting 1.0.x or 1.2.x.
+/// Requesting 1.4.0 falls through to an unsupported branch and fails silently.
 #[no_mangle]
 pub unsafe extern "C" fn mumble_getAPIVersion() -> mumble_version_t {
     mumble_version_t {
         major: 1,
-        minor: 4,
+        minor: 0,
         patch: 0,
     }
 }
