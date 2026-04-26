@@ -78,26 +78,31 @@
 
 ---
 
-## 🚀 Fases de desarrollo
+## 🚀 Estado de desarrollo
 
-### ✅ Fase 1 — Voz por proximidad
-- Arma 3 envía posición y dirección al bridge vía UDP
-- El bridge escribe en la shared memory MumbleLink
-- Mumble aplica audio posicional (dirección + distancia) automáticamente
+### ✅ Milestone — Pipeline end-to-end verificado en Linux
 
-### ✅ Fase 2 — Radio simple
-- Push-to-talk separado para radio
-- Frecuencia única por jugador
-- Solo escuchan entre sí los jugadores en la misma frecuencia
-- Efecto DSP de radio (filtro bandpass + soft-clip + ruido)
+El sistema completo fue probado en Linux sin Arma 3:
 
-### ✅ Fase 3 — Lógica tipo TFAR
-- Radios de corto alcance (SR) y largo alcance (LR)
-- Múltiples canales por frecuencia
-- Interferencia de señal por distancia
-- Radios de vehículo
-- Estado muerto / inconsciente
-- Presets de frecuencia por facción (BLUFOR, OPFOR, INDEP)
+| Componente | Estado |
+|---|---|
+| `rmtfar-bridge` — recibe estado del jugador vía UDP :9500 | ✅ |
+| Plugin Mumble — carga correctamente en Mumble 1.5.x | ✅ |
+| `mumble_onAudioSourceFetched` — intercepta audio entrante | ✅ |
+| Mapeo de identidad: session_id → username → PlayerState | ✅ |
+| Filtro de radio por frecuencia (mute si no coincide) | ✅ |
+| DSP de radio (bandpass + soft-clip + noise) — **audible** | ✅ |
+| Silencio cuando no hay PTT activo | ✅ |
+| Voz de proximidad con atenuación por distancia | ✅ |
+| Extension DLL para Arma 3 | ⚠️ Solo Windows (cross-compile) |
+
+### 🗺️ Fases de desarrollo
+
+| Fase | Descripción | Estado |
+|---|---|---|
+| **1** | Voz por proximidad (posición 3D, atenuación por distancia) | ✅ |
+| **2** | Radio simple (frecuencia, PTT radio, efecto DSP) | ✅ |
+| **3** | Lógica tipo TFAR (SR/LR, canales, rango, interferencia, vehículos) | 🔜 |
 
 ---
 
@@ -217,27 +222,34 @@ rmtfar/
 
 ## 🐧 Cómo probar en Linux (sin Arma 3)
 
-Esta es la forma más rápida de ver el sistema funcionando end-to-end en Linux.
+Guía paso a paso para verificar el sistema completo en Linux con dos instancias de Mumble.
 
 ### Requisitos
 
 ```bash
-sudo apt install mumble   # Mumble 1.4+ (1.5.x disponible en Ubuntu 24.04)
+sudo apt install mumble murmur    # Mumble 1.5.x en Ubuntu 24.04+
+sudo systemctl start mumbled      # Arrancar el servidor local
 ```
 
-### Paso 1 — Compilar e instalar el plugin en Mumble
+### Paso 1 — Compilar e instalar el plugin
 
 ```bash
 ./scripts/build-plugin-linux.sh
 ```
 
-Compila `librmtfar_plugin.so` y lo copia a `~/.local/share/mumble/Plugins/`.
+Genera `target/release/rmtfar_plugin.mumble_plugin`. Instalalo en Mumble:
+**Configurar → Complementos → Instalar un plugin…** → seleccioná el `.mumble_plugin`.
 
-### Paso 2 — Activar el plugin en Mumble
+### Paso 2 — Abrir dos instancias de Mumble
 
-1. Abrí Mumble → **Configuración → Plugins**
-2. Activá **RMTFAR** en la lista
-3. Conectate a cualquier servidor Murmur (podés usar el público `mumble.iphostname.com`)
+```bash
+mumble &                     # Instancia A (escucha, tiene el plugin)
+mumble --multiple &          # Instancia B (habla, sin plugin necesario)
+```
+
+> **Importante:** el `--id` del test-client debe coincidir con el **username de Mumble** del jugador que habla. El plugin usa el nombre de Mumble para mapear la identidad.
+
+Conectá ambas instancias al servidor local (`localhost`).
 
 ### Paso 3 — Arrancar el bridge
 
@@ -245,34 +257,53 @@ Compila `librmtfar_plugin.so` y lo copia a `~/.local/share/mumble/Plugins/`.
 cargo run --release -p rmtfar-bridge
 ```
 
-### Paso 4 — Simular jugadores (en terminales separadas)
+### Paso 4 — Simular estado de jugadores
+
+Reemplazá `NombreMumble_A` y `NombreMumble_B` con los usernames reales de cada instancia.
+
+#### 🔊 Prueba de radio
 
 ```bash
-# Jugador 1 — caminando en círculos con voz directa
+# Instancia A escucha en freq 43.0
 cargo run --release -p rmtfar-test-client -- \
-  --id p1 --orbit --ptt-local
+  --id "NombreMumble_A" --freq 43.0
 
-# Jugador 2 — transmitiendo por radio en frecuencia 152.000
+# Instancia B transmite por radio en freq 43.0
 cargo run --release -p rmtfar-test-client -- \
-  --id p2 --pos 150,0,0 --ptt-radio --freq 152.000
-
-# Jugador 3 — radio en diferente frecuencia (no se escucha con p2)
-cargo run --release -p rmtfar-test-client -- \
-  --id p3 --pos 200,0,0 --ptt-radio --freq 155.000
+  --id "NombreMumble_B" --freq 43.0 --ptt-radio
 ```
 
-El bridge imprime en tiempo real qué jugadores están transmitiendo, qué frecuencia usan y si coinciden. Mumble aplica el audio posicional a través de MumbleLink.
+Cuando la Instancia B hable, la Instancia A escucha el audio con **efecto de radio** (filtro bandpass + ruido). Si cambiás la frecuencia de B a `44.0`, el audio se silencia.
 
-### Qué funciona en Linux hoy
+#### 👂 Prueba de proximidad
 
-| Feature | Estado |
-|---|---|
-| Bridge recibiendo estado UDP | ✅ |
-| Audio posicional vía MumbleLink | ✅ (con Mumble corriendo) |
-| Plugin filtrando audio por frecuencia | ✅ |
-| DSP de radio (bandpass + ruido) | ✅ |
-| Tests unitarios completos | ✅ |
-| Extension DLL para Arma 3 | ⚠️ Solo Windows (cross-compile) |
+```bash
+# Instancia A (oyente) quieta en 0,0,0
+cargo run --release -p rmtfar-test-client -- \
+  --id "NombreMumble_A"
+
+# Instancia B (hablante) orbitando — se aleja y acerca
+cargo run --release -p rmtfar-test-client -- \
+  --id "NombreMumble_B" --orbit --orbit-radius 30 --ptt-local
+
+# También: B estático a distancia fija para comparar
+# --pos 10,0,0  → volumen ~80%
+# --pos 45,0,0  → volumen ~10%
+# --pos 60,0,0  → silencio (> 50m)
+```
+
+El volumen de la voz de B se atenúa linealmente con la distancia (rango máximo: **50 m**).
+
+### Paso 5 — Verificar logs
+
+En el terminal del proceso Mumble de la Instancia A:
+
+```
+INFO  RMTFAR: registering identity user_id=X name="NombreMumble_B"
+DEBUG rmtfar_plugin: radio — applying DSP uid="NombreMumble_B" dist=0.0
+DEBUG rmtfar_plugin: local voice uid="NombreMumble_B" dist=23.5 volume=0.53
+DEBUG rmtfar_plugin: out of local range — muted uid="NombreMumble_B"
+```
 
 ---
 

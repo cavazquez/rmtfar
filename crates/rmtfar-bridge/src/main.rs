@@ -32,6 +32,13 @@ struct Cli {
     /// Log level (trace, debug, info, warn, error)
     #[arg(long, default_value = "info")]
     log_level: String,
+
+    /// Fixed local player ID (Mumble username).
+    /// When set the `RadioStateMessage` always uses this ID as `local_player`,
+    /// regardless of which test-client sent the last update.
+    /// Required for proximity testing with two test-clients.
+    #[arg(long)]
+    local_id: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -91,7 +98,13 @@ fn main() -> Result<()> {
         // Update Mumble Link positional data for the local player.
         mumble.update(&state);
 
-        let local_id = state.steam_id.clone();
+        // Determine local player ID: use the fixed --local-id if provided,
+        // otherwise fall back to whoever just sent this update (original behaviour).
+        let local_id = cli
+            .local_id
+            .as_deref()
+            .unwrap_or(&state.steam_id)
+            .to_string();
         store.update(state);
 
         let msg = build_message(&store, &local_id);
