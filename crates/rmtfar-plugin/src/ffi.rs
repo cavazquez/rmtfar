@@ -115,6 +115,30 @@ pub unsafe extern "C" fn mumble_registerAPIFunctions(_api: *const c_void) {}
 pub unsafe extern "C" fn mumble_releaseResource(_pointer: *const c_void) {}
 
 // ---------------------------------------------------------------------------
+// Feature declaration — REQUIRED for audio callbacks to fire
+// ---------------------------------------------------------------------------
+
+/// Tells Mumble which features this plugin uses.
+/// `MUMBLE_FEATURE_AUDIO` (1 << 1 = 2) enables `mumble_onAudioSourceFetched`.
+/// Without this export Mumble never routes audio through the plugin.
+///
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn mumble_getFeatures() -> u32 {
+    2 // MUMBLE_FEATURE_AUDIO
+}
+
+/// Called by Mumble if it wants to deactivate a feature.
+/// We don't support deactivating audio processing mid-session.
+/// Returns `MUMBLE_FEATURE_NONE`.
+///
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn mumble_deactivateFeatures(_features: u32) -> u32 {
+    0 // MUMBLE_FEATURE_NONE — nothing deactivated
+}
+
+// ---------------------------------------------------------------------------
 // Audio callback
 // ---------------------------------------------------------------------------
 
