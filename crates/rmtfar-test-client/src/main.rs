@@ -95,6 +95,7 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
     }
 }
 
+#[allow(clippy::struct_excessive_bools)]
 struct Config {
     steam_id: String,
     server_id: String,
@@ -157,6 +158,7 @@ impl Config {
     }
 }
 
+#[allow(clippy::too_many_lines, clippy::similar_names)]
 fn parse_args(args: &[String]) -> Result<Config> {
     let mut steam_id = "76561198000000001".to_string();
     let mut server_id = "127.0.0.1:2302".to_string();

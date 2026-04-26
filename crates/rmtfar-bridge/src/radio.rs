@@ -67,6 +67,7 @@ mod tests {
                 channel: 1,
                 volume: 1.0,
                 enabled: true,
+                range_m: None,
             }),
             radio_lr: None,
         }
@@ -110,5 +111,87 @@ mod tests {
     #[test]
     fn signal_quality_beyond() {
         assert_eq!(signal_quality(5001.0, 5000.0), None);
+    }
+
+    // -----------------------------------------------------------------------
+    // LR radio
+    // -----------------------------------------------------------------------
+
+    fn player_lr(id: &str, pos: [f32; 3], ptt_lr: bool, freq: &str, channel: u8) -> PlayerState {
+        PlayerState {
+            v: 1,
+            msg_type: "player_state".into(),
+            steam_id: id.to_string(),
+            server_id: "srv".into(),
+            tick: 0,
+            pos,
+            dir: 0.0,
+            alive: true,
+            conscious: true,
+            vehicle: String::new(),
+            ptt_local: false,
+            ptt_radio_sr: false,
+            ptt_radio_lr: ptt_lr,
+            radio_sr: None,
+            radio_lr: Some(RadioConfig {
+                freq: freq.into(),
+                channel,
+                volume: 1.0,
+                enabled: true,
+                range_m: None,
+            }),
+        }
+    }
+
+    #[test]
+    fn lr_same_freq_in_range() {
+        let tx = player_lr("A", [0.0; 3], true, "30.0", 1);
+        let rx = player_lr("B", [1000.0, 0.0, 0.0], false, "30.0", 1);
+        assert!(can_hear_radio(&tx, &rx));
+    }
+
+    #[test]
+    fn lr_out_of_range() {
+        let tx = player_lr("A", [0.0; 3], true, "30.0", 1);
+        let rx = player_lr("B", [25000.0, 0.0, 0.0], false, "30.0", 1);
+        assert!(!can_hear_radio(&tx, &rx));
+    }
+
+    #[test]
+    fn lr_freq_mismatch() {
+        let tx = player_lr("A", [0.0; 3], true, "30.0", 1);
+        let rx = player_lr("B", [1000.0, 0.0, 0.0], false, "40.0", 1);
+        assert!(!can_hear_radio(&tx, &rx));
+    }
+
+    #[test]
+    fn lr_channel_mismatch() {
+        let tx = player_lr("A", [0.0; 3], true, "30.0", 1);
+        let rx = player_lr("B", [1000.0, 0.0, 0.0], false, "30.0", 2);
+        assert!(!can_hear_radio(&tx, &rx));
+    }
+
+    // -----------------------------------------------------------------------
+    // Vehicle
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn vehicle_blocks_local_ptt_in_can_hear() {
+        // TX in vehicle pressing local PTT — must NOT be heard
+        let mut tx = player("A", [0.0; 3], false);
+        tx.ptt_local = true;
+        tx.vehicle = "B_MRAP_01_F".into();
+        let _rx = player("B", [10.0, 0.0, 0.0], false);
+        // can_hear_radio checks radio PTT only, but PlayerState::is_transmitting_local
+        // returns false for vehicle — verify that at the protocol level
+        assert!(!tx.is_transmitting_local(), "local PTT blocked by vehicle");
+    }
+
+    #[test]
+    fn vehicle_does_not_block_sr_radio() {
+        let mut tx = player("A", [0.0; 3], true); // ptt_radio_sr = true
+        tx.vehicle = "B_MRAP_01_F".into();
+        let rx = player("B", [100.0, 0.0, 0.0], false);
+        assert!(can_hear_radio(&tx, &rx), "radio should work inside vehicle");
     }
 }

@@ -175,6 +175,7 @@ fn default_channel() -> u8 {
 }
 
 impl PlayerSummary {
+    #[allow(clippy::similar_names)]
     pub fn from_state(state: &PlayerState) -> Self {
         let (transmitting_radio, radio_type, radio_freq, radio_channel, radio_range_m) =
             if state.is_transmitting_sr() {
@@ -199,18 +200,21 @@ impl PlayerSummary {
                 (false, String::new(), String::new(), 0, 0.0)
             };
 
-        let (tuned_sr_freq, tuned_sr_channel) = state
-            .radio_sr
-            .as_ref()
-            .filter(|r| r.enabled)
-            .map(|r| (r.freq.clone(), r.channel))
-            .unwrap_or_default();
-        let (tuned_lr_freq, tuned_lr_channel) = state
-            .radio_lr
-            .as_ref()
-            .filter(|r| r.enabled)
-            .map(|r| (r.freq.clone(), r.channel))
-            .unwrap_or_default();
+        let (tuned_sr_freq, tuned_sr_channel, tuned_lr_freq, tuned_lr_channel) = {
+            let sr = state
+                .radio_sr
+                .as_ref()
+                .filter(|r| r.enabled)
+                .map(|r| (r.freq.clone(), r.channel))
+                .unwrap_or_default();
+            let lr = state
+                .radio_lr
+                .as_ref()
+                .filter(|r| r.enabled)
+                .map(|r| (r.freq.clone(), r.channel))
+                .unwrap_or_default();
+            (sr.0, sr.1, lr.0, lr.1)
+        };
 
         Self {
             steam_id: state.steam_id.clone(),
@@ -420,5 +424,161 @@ mod tests {
         let state: PlayerState = serde_json::from_str(json).unwrap();
         assert_eq!(state.steam_id, "123");
         assert!(!state.ptt_local);
+    }
+
+    // -----------------------------------------------------------------------
+    // Vehicle
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn vehicle_blocks_local_ptt() {
+        let mut state = sample_state();
+        state.ptt_local = true;
+        state.vehicle = "B_MRAP_01_F".into();
+        assert!(!state.is_transmitting_local(), "vehicle should block local PTT");
+        assert!(state.is_in_vehicle());
+    }
+
+    #[test]
+    fn no_vehicle_allows_local_ptt() {
+        let mut state = sample_state();
+        state.ptt_local = true;
+        assert!(state.is_transmitting_local());
+        assert!(!state.is_in_vehicle());
+    }
+
+    #[test]
+    fn vehicle_does_not_block_radio() {
+        let mut state = sample_state();
+        state.ptt_radio_sr = true;
+        state.vehicle = "B_MRAP_01_F".into();
+        assert!(state.is_transmitting_sr(), "vehicle should NOT block SR radio");
+    }
+
+    #[test]
+    fn in_vehicle_field_in_summary() {
+        let mut state = sample_state();
+        state.vehicle = "B_MRAP_01_F".into();
+        let summary = PlayerSummary::from_state(&state);
+        assert!(summary.in_vehicle);
+
+        state.vehicle = String::new();
+        let summary = PlayerSummary::from_state(&state);
+        assert!(!summary.in_vehicle);
+    }
+
+    // -----------------------------------------------------------------------
+    // Tuned frequencies and channels
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn tuned_sr_freq_always_populated() {
+        let mut state = sample_state();
+        // radio_sr enabled but PTT not pressed
+        state.ptt_radio_sr = false;
+        state.radio_sr = Some(RadioConfig {
+            freq: "43.0".into(),
+            channel: 3,
+            volume: 1.0,
+            enabled: true,
+            range_m: None,
+        });
+        let summary = PlayerSummary::from_state(&state);
+        assert_eq!(summary.tuned_sr_freq, "43.0");
+        assert_eq!(summary.tuned_sr_channel, 3);
+        assert!(!summary.transmitting_radio, "PTT not pressed");
+    }
+
+    #[test]
+    fn tuned_lr_freq_populated_when_lr_equipped() {
+        let mut state = sample_state();
+        state.radio_lr = Some(RadioConfig {
+            freq: "30.5".into(),
+            channel: 2,
+            volume: 1.0,
+            enabled: true,
+            range_m: None,
+        });
+        let summary = PlayerSummary::from_state(&state);
+        assert_eq!(summary.tuned_lr_freq, "30.5");
+        assert_eq!(summary.tuned_lr_channel, 2);
+    }
+
+    #[test]
+    fn tuned_freq_empty_when_radio_disabled() {
+        let mut state = sample_state();
+        state.radio_sr = Some(RadioConfig {
+            freq: "43.0".into(),
+            channel: 1,
+            volume: 1.0,
+            enabled: false, // radio OFF
+            range_m: None,
+        });
+        let summary = PlayerSummary::from_state(&state);
+        assert_eq!(summary.tuned_sr_freq, "", "disabled radio should not provide tuned freq");
+    }
+
+    // -----------------------------------------------------------------------
+    // LR radio
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn player_summary_lr_transmit() {
+        let mut state = sample_state();
+        state.ptt_radio_lr = true;
+        state.radio_lr = Some(RadioConfig {
+            freq: "30.0".into(),
+            channel: 1,
+            volume: 1.0,
+            enabled: true,
+            range_m: None,
+        });
+        let summary = PlayerSummary::from_state(&state);
+        assert!(summary.transmitting_radio);
+        assert_eq!(summary.radio_type, "lr");
+        assert_eq!(summary.radio_freq, "30.0");
+        assert!((summary.radio_range_m - RADIO_LR_RANGE_M).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn radio_range_override() {
+        let mut state = sample_state();
+        state.ptt_radio_sr = true;
+        state.radio_sr = Some(RadioConfig {
+            freq: "43.0".into(),
+            channel: 1,
+            volume: 1.0,
+            enabled: true,
+            range_m: Some(500.0),
+        });
+        let summary = PlayerSummary::from_state(&state);
+        assert!((summary.radio_range_m - 500.0).abs() < f32::EPSILON, "range_m override not applied");
+    }
+
+    // -----------------------------------------------------------------------
+    // Alive / conscious
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn dead_blocks_all_ptt() {
+        let mut state = sample_state();
+        state.alive = false;
+        state.ptt_local = true;
+        state.ptt_radio_sr = true;
+        state.ptt_radio_lr = true;
+        state.radio_lr = Some(RadioConfig::default());
+        assert!(!state.is_transmitting_local());
+        assert!(!state.is_transmitting_sr());
+        assert!(!state.is_transmitting_lr());
+    }
+
+    #[test]
+    fn unconscious_blocks_all_ptt() {
+        let mut state = sample_state();
+        state.conscious = false;
+        state.ptt_local = true;
+        state.ptt_radio_sr = true;
+        assert!(!state.is_transmitting_local());
+        assert!(!state.is_transmitting_sr());
     }
 }

@@ -15,6 +15,9 @@ pub mod dsp;
 pub mod ffi;
 pub mod state;
 
+#[cfg(test)]
+mod tests;
+
 use rmtfar_protocol::{distance, RadioStateMessage, LOCAL_VOICE_RANGE_M, PLUGIN_RECV_PORT};
 use state::PluginState;
 use std::net::UdpSocket;
@@ -95,6 +98,7 @@ impl Plugin {
     /// Decide whether user `mumble_id` should be heard.
     /// Returns `false` to mute the user entirely.
     /// Samples are modified in place when returning `true`.
+    #[allow(clippy::similar_names)]
     pub(crate) fn process_audio(
         &mut self,
         mumble_id: u32,
