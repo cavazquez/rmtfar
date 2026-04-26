@@ -99,8 +99,8 @@
 | **Vehículo** — PTT local bloqueado, radio sigue funcionando | ✅ | log: `in vehicle, no radio PTT — muted` |
 | Mute correcto (zerear buffer, return true) | ✅ | fix API Mumble |
 | **Tests de integración en CI** — 60 tests automatizados | ✅ | unit + integración bridge (subprocess UDP) |
-| **Extension DLL para Arma 3** — cross-compile Windows x64 | ✅ | MSVC via `cargo-xwin`, ~200 KB release |
-| **Plugin Mumble para Windows** — `rmtfar_plugin.dll` | ✅ | MSVC via `cargo-xwin`, 18 exports Mumble, ~800 KB release |
+| **Extension DLL para Arma 3** — cross-compile Windows x64 | ✅ | mingw-w64 (`x86_64-pc-windows-gnu`), ~200 KB release |
+| **Plugin Mumble para Windows** — `rmtfar_plugin.dll` | ✅ | mingw-w64, 18 exports Mumble, ~800 KB release |
 | **PBO packing** — scripts SQF empaquetados para Arma 3 | ✅ | `armake2`, con `$PBOPREFIX$` |
 | **CBA keybinds** — PTT local, radio SR y LR | ✅ | `CBA_fnc_addKeybind`, XEH pre/postInit |
 
@@ -111,7 +111,7 @@
 | **1** | Voz por proximidad (posición 3D, atenuación por distancia) | ✅ |
 | **2** | Radio simple (frecuencia, canal, rango, PTT, efecto DSP, muerte) | ✅ |
 | **3** | Lógica tipo TFAR (SR/LR, potencia, interferencia, vehículos) | ✅ |
-| **4** | Extension DLL + Plugin Mumble Windows (cross-compile MSVC desde Linux) | ✅ |
+| **4** | Extension DLL + Plugin Mumble Windows (cross-compile mingw-w64 desde Linux) | ✅ |
 | **5** | Testing en Windows con Arma 3 (PBO, CBA keybinds, mod loading) | 🚧 |
 
 ---
@@ -179,12 +179,18 @@ rmtfar/
 ├── 📄 Cargo.toml                  # Workspace de Rust
 ├── 📄 LICENSE                     # GPLv3
 ├── 📄 README.md
+├── 📄 mod.cpp                     # Metadatos del mod (@rmtfar) — se copia al paquete de release
 ├── 🔍 check.sh                    # Quality gate: fmt + clippy + tests + SQF lint
 ├── 🔧 install-plugin.sh           # Compila e instala el plugin en todos los paths de Mumble
+├── 📂 addon/                      # Fuentes SQF del addon (se empaquetan en rmtfar.pbo)
+│   ├── $PBOPREFIX$
+│   ├── config.cpp
+│   ├── functions/
+│   └── …
 ├── 📂 .github/
 │   └── workflows/
 │       ├── ci.yml                 # CI: fmt + clippy + tests + build (GNU/mingw)
-│       ├── release.yml            # Release: tag v* → build MSVC → GitHub Release
+│       ├── release.yml            # Release: tag v* → build → GitHub Release
 │       └── dep-audit.yml          # Auditoría anual de dependencias (diciembre)
 ├── 📦 crates/
 │   ├── rmtfar-protocol/           # Tipos compartidos (PlayerState, RadioStateMessage…)
@@ -193,13 +199,16 @@ rmtfar/
 │   │   └── tests/integration.rs  # Tests de integración (bridge subprocess + UDP)
 │   ├── rmtfar-plugin/             # Plugin de Mumble (cdylib, C FFI)
 │   └── rmtfar-test-client/        # Simulador sin necesidad de Arma 3
-├── 🪖 arma-mod/
-│   └── @rmtfar/                   # Mod de Arma 3 + DLL precompilada
+├── 📂 dist/                       # Generado por los scripts (ignorado por git)
+│   ├── windows-x64/
+│   │   ├── arma3/@rmtfar/         # Listo para copiar al launcher de Arma 3
+│   │   └── mumble/                # rmtfar_plugin.dll para Windows
+│   └── linux/mumble/              # librmtfar_plugin.so para Linux
 └── 🔧 scripts/
-    ├── build-linux.sh             # Plugin .so + instala en Mumble + bridge + test-client
-    ├── build-windows.sh           # Cross-compile mingw-w64: extension DLL + plugin DLL
-    ├── pack-pbo.sh                # Empaqueta SQF en PBO para Arma 3
-    └── package-release.sh         # Empaqueta release completo (llama a los anteriores)
+    ├── build-linux.sh             # Plugin .so (+ opcional --release → dist/ e instala Mumble)
+    ├── build-windows.sh           # Cross-compile mingw-w64 (+ opcional --release → dist/)
+    ├── pack-pbo.sh                # Empaqueta addon/ → dist/windows-x64/arma3/@rmtfar/addons/
+    └── package-release.sh         # build-windows + build-linux en release + zip en dist/
 ```
 
 ---
@@ -246,27 +255,40 @@ rustup target add x86_64-pc-windows-gnu
 cargo install armake2
 ```
 
-### Compilar todo
+### Compilar
 
 ```bash
-./scripts/build-linux.sh             # compila plugin .so, bridge y test-client
-./scripts/build-windows.sh           # cross-compila extension DLL y plugin DLL (mingw-w64)
-./scripts/pack-pbo.sh                # → arma-mod/@rmtfar/addons/rmtfar.pbo
-./scripts/package-release.sh         # ejecuta todo lo anterior y empaqueta el release
+# Debug: binarios solo en target/ (ignorado por git)
+./scripts/build-linux.sh
+./scripts/build-windows.sh
+
+# Release: además genera dist/ listo para copiar
+./scripts/build-linux.sh --release    # dist/linux/mumble/librmtfar_plugin.so (+ instala en Mumble local)
+./scripts/build-windows.sh --release  # dist/windows-x64/arma3/@rmtfar/ + dist/windows-x64/mumble/
+
+# PBO (normalmente ya incluido en build-windows.sh --release; manual si hace falta)
+./scripts/pack-pbo.sh
+
+# Zip completo (Windows + Linux) en dist/rmtfar-v*.zip
+./scripts/package-release.sh
 ```
 
-### Archivos generados
+En **Linux**, Arma 3 corre vía Proton/Steam Play y sigue usando la **extension DLL de Windows**; no hay binario nativo de la extensión para Linux. Para el mod en el juego, usá `dist/windows-x64/arma3/@rmtfar/` generado por `build-windows.sh --release`.
 
-| Archivo | Tamaño aprox. | Destino en Windows |
-|---|---|---|
-| `rmtfar_x64.dll` | ~200 KB | Dentro de `@rmtfar/` (Arma 3 lo carga via callExtension) |
-| `rmtfar_plugin.dll` | ~800 KB | `%APPDATA%\Mumble\Plugins\rmtfar_plugin.dll` |
-| `rmtfar.pbo` | ~9 KB | Dentro de `@rmtfar/addons/` (scripts SQF) |
+### Archivos generados (`--release`)
+
+| Archivo | Tamaño aprox. | Dónde queda | Destino en el sistema |
+|---|---|---|---|
+| `rmtfar_x64.dll` | ~200 KB | `dist/windows-x64/arma3/@rmtfar/` | Arma 3 lo carga vía `callExtension` |
+| `mod.cpp` | — | `dist/windows-x64/arma3/@rmtfar/` | Metadatos del mod en el launcher |
+| `rmtfar.pbo` | ~17 KB | `dist/windows-x64/arma3/@rmtfar/addons/` | Scripts SQF empaquetados |
+| `rmtfar_plugin.dll` | ~800 KB | `dist/windows-x64/mumble/` | `%APPDATA%\Mumble\Plugins\` |
+| `librmtfar_plugin.so` | — | `dist/linux/mumble/` | Plugins de Mumble en Linux |
 
 ### Instalar en Windows
 
-1. Copiar toda la carpeta `@rmtfar/` a una ubicación accesible (ej. `C:\Users\...\Downloads\rmtfar\@rmtfar\`)
-2. Copiar `rmtfar_plugin.dll` a `%APPDATA%\Mumble\Plugins\`
+1. Copiar la carpeta `dist/windows-x64/arma3/@rmtfar/` (o el contenido equivalente del zip de release) a una ubicación accesible (ej. `C:\Users\...\Documents\Arma 3 - Other Profiles\...\mods\@rmtfar\`)
+2. Copiar `dist/windows-x64/mumble/rmtfar_plugin.dll` a `%APPDATA%\Mumble\Plugins\`
 3. En el **Launcher de Arma 3** → **MODS** → **Add local mod** → seleccionar la carpeta `@rmtfar`
 4. **Desactivar BattlEye** en el Launcher (la DLL no está en la whitelist de BE y será bloqueada)
 5. Mumble detecta el plugin automáticamente al iniciar. Verificar en *Mumble → Configuración → Plugins*
@@ -279,12 +301,12 @@ cargo install armake2
 ### Verificar exports
 
 ```bash
-# Extension (3 exports para Arma 3)
-x86_64-w64-mingw32-objdump -p arma-mod/@rmtfar/rmtfar_x64.dll | grep -A5 "Ordinal/Name"
+# Extension (3 exports para Arma 3) — tras build-windows.sh --release
+x86_64-w64-mingw32-objdump -p dist/windows-x64/arma3/@rmtfar/rmtfar_x64.dll | grep -A5 "Ordinal/Name"
 # RVExtension  RVExtensionArgs  RVExtensionVersion
 
 # Plugin (18 exports para Mumble)
-x86_64-w64-mingw32-objdump -p arma-mod/@rmtfar/rmtfar_plugin.dll | grep mumble_
+x86_64-w64-mingw32-objdump -p dist/windows-x64/mumble/rmtfar_plugin.dll | grep mumble_
 ```
 
 ### Uso desde SQF
@@ -298,29 +320,40 @@ systemChat format ["RMTFAR version: %1", _ver];
 private _result = "rmtfar" callExtension ["send", [_payloadV1]];
 ```
 
-> **CI y releases**: todos los binarios de Windows (CI + GitHub Releases) se compilan con `x86_64-pc-windows-gnu` (mingw-w64). Las DLLs funcionan correctamente en Arma 3 **con BattlEye desactivado** (ver advertencia abajo).
+> **CI y releases**: los binarios de Windows se compilan con `x86_64-pc-windows-gnu` (mingw-w64). Las DLLs funcionan correctamente en Arma 3 **con BattlEye desactivado** (ver advertencia abajo).
 
 ---
 
 ## 🪖 Estructura del mod de Arma 3
 
+En el repositorio, las fuentes del addon están en **`addon/`** (SQF + `config.cpp`); al hacer release se empaquetan en **`addons/rmtfar.pbo`**. El **`mod.cpp`** vive en la raíz del repo y se copia junto al DLL al armar `dist/`.
+
+**Distribución** (`dist/windows-x64/arma3/@rmtfar/` tras `./scripts/build-windows.sh --release`):
+
 ```
 @rmtfar/
-├── rmtfar_x64.dll              # Extension DLL (Rust, MSVC)
-├── rmtfar_plugin.dll           # Plugin Mumble (copiar a %APPDATA%\Mumble\Plugins\)
+├── mod.cpp                     # Metadatos del mod (launcher)
+├── rmtfar_x64.dll              # Extension DLL (Rust, mingw-w64)
 └── addons/
-    ├── rmtfar.pbo              # Scripts SQF empaquetados
-    └── rmtfar/                 # Fuentes SQF (no se distribuyen, solo para desarrollo)
-        ├── $PBOPREFIX$         # Prefijo interno: rmtfar\addons\rmtfar
-        ├── config.cpp          # CfgPatches + CBA Extended Event Handlers
-        ├── XEH_preInit.sqf     # Inicialización de variables globales
-        ├── XEH_postInit.sqf    # Init de extension + loop principal
-        └── functions/
-            ├── fn_init.sqf     # CBA keybinds (PTT local, SR, LR)
-            ├── fn_loop.sqf     # Loop: recolecta estado, broadcast, envía a extension
-            ├── fn_getPlayerState.sqf  # Lee pos/dir/alive/radio de un jugador
-            └── fn_sendState.sqf       # Serializa payload v1 y llama callExtension
+    └── rmtfar.pbo              # Scripts SQF empaquetados (desde addon/)
 ```
+
+**Fuentes en el repo** (`addon/`):
+
+```
+addon/
+├── $PBOPREFIX$                 # Prefijo interno: rmtfar\addons\rmtfar
+├── config.cpp                  # CfgPatches + CBA Extended Event Handlers
+├── XEH_preInit.sqf             # Inicialización de variables globales
+├── XEH_postInit.sqf            # Init de extension + loop principal
+└── functions/
+    ├── fn_init.sqf             # CBA keybinds (PTT local, SR, LR)
+    ├── fn_loop.sqf             # Loop: recolecta estado, broadcast, envía a extension
+    ├── fn_getPlayerState.sqf   # Lee pos/dir/alive/radio de un jugador
+    └── fn_sendState.sqf        # Serializa payload v1 y llama callExtension
+```
+
+El **plugin de Mumble para Windows** (`rmtfar_plugin.dll`) no va dentro de `@rmtfar/` en el juego: copiarlo desde **`dist/windows-x64/mumble/`** a `%APPDATA%\Mumble\Plugins\`.
 
 ### Keybinds (CBA)
 
