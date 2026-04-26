@@ -435,7 +435,10 @@ mod tests {
         let mut state = sample_state();
         state.ptt_local = true;
         state.vehicle = "B_MRAP_01_F".into();
-        assert!(!state.is_transmitting_local(), "vehicle should block local PTT");
+        assert!(
+            !state.is_transmitting_local(),
+            "vehicle should block local PTT"
+        );
         assert!(state.is_in_vehicle());
     }
 
@@ -452,7 +455,10 @@ mod tests {
         let mut state = sample_state();
         state.ptt_radio_sr = true;
         state.vehicle = "B_MRAP_01_F".into();
-        assert!(state.is_transmitting_sr(), "vehicle should NOT block SR radio");
+        assert!(
+            state.is_transmitting_sr(),
+            "vehicle should NOT block SR radio"
+        );
     }
 
     #[test]
@@ -515,7 +521,10 @@ mod tests {
             range_m: None,
         });
         let summary = PlayerSummary::from_state(&state);
-        assert_eq!(summary.tuned_sr_freq, "", "disabled radio should not provide tuned freq");
+        assert_eq!(
+            summary.tuned_sr_freq, "",
+            "disabled radio should not provide tuned freq"
+        );
     }
 
     // -----------------------------------------------------------------------
@@ -552,7 +561,10 @@ mod tests {
             range_m: Some(500.0),
         });
         let summary = PlayerSummary::from_state(&state);
-        assert!((summary.radio_range_m - 500.0).abs() < f32::EPSILON, "range_m override not applied");
+        assert!(
+            (summary.radio_range_m - 500.0).abs() < f32::EPSILON,
+            "range_m override not applied"
+        );
     }
 
     // -----------------------------------------------------------------------

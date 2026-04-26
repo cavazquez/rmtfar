@@ -53,9 +53,18 @@ fn main() -> Result<()> {
         println!(
             "[{:>8.2}s] tick={:<6} pos=[{:>8.1}, {:>8.1}, {:>6.1}] dir={:>5.1}° \
              ptt_local={} ptt_sr={} ptt_lr={} alive={} conscious={} vehicle={:?}",
-            elapsed, tick, pos[0], pos[1], pos[2], dir,
-            config.ptt_local, config.ptt_radio_sr, config.ptt_radio_lr,
-            config.alive, config.conscious, config.vehicle,
+            elapsed,
+            tick,
+            pos[0],
+            pos[1],
+            pos[2],
+            dir,
+            config.ptt_local,
+            config.ptt_radio_sr,
+            config.ptt_radio_lr,
+            config.alive,
+            config.conscious,
+            config.vehicle,
         );
 
         tick += 1;

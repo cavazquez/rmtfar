@@ -109,18 +109,24 @@ impl Plugin {
 
         let radio = self.state.last_message();
 
-        let (local_pos, local_alive, local_tuned_sr, local_tuned_sr_ch, local_tuned_lr, local_tuned_lr_ch) =
-            match radio.as_ref().and_then(|m| m.local()) {
-                Some(l) => (
-                    l.pos,
-                    l.alive && l.conscious,
-                    l.tuned_sr_freq.clone(),
-                    l.tuned_sr_channel,
-                    l.tuned_lr_freq.clone(),
-                    l.tuned_lr_channel,
-                ),
-                None => return true, // no state yet, pass through
-            };
+        let (
+            local_pos,
+            local_alive,
+            local_tuned_sr,
+            local_tuned_sr_ch,
+            local_tuned_lr,
+            local_tuned_lr_ch,
+        ) = match radio.as_ref().and_then(|m| m.local()) {
+            Some(l) => (
+                l.pos,
+                l.alive && l.conscious,
+                l.tuned_sr_freq.clone(),
+                l.tuned_sr_channel,
+                l.tuned_lr_freq.clone(),
+                l.tuned_lr_channel,
+            ),
+            None => return true, // no state yet, pass through
+        };
 
         if !local_alive {
             return false;

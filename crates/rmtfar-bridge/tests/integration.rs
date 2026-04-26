@@ -8,9 +8,7 @@
 //! Ports are allocated dynamically (binding to :0) to avoid conflicts when
 //! tests run in parallel or alongside a real bridge.
 
-use rmtfar_protocol::{
-    PlayerState, RadioConfig, RadioStateMessage, PROTOCOL_VERSION,
-};
+use rmtfar_protocol::{PlayerState, RadioConfig, RadioStateMessage, PROTOCOL_VERSION};
 use std::{
     net::UdpSocket,
     process::{Child, Command, Stdio},
@@ -200,7 +198,10 @@ fn bridge_tracks_multiple_players() {
             }
         }
 
-        assert!(Instant::now() < deadline, "timed out waiting for p2 in RadioStateMessage");
+        assert!(
+            Instant::now() < deadline,
+            "timed out waiting for p2 in RadioStateMessage"
+        );
     };
 
     assert!(
@@ -240,10 +241,7 @@ fn bridge_reflects_dead_player() {
 
     let player = msg.players.iter().find(|p| p.steam_id == "p1").unwrap();
     assert!(!player.alive);
-    assert!(
-        !player.transmitting_radio,
-        "dead player must not transmit"
-    );
+    assert!(!player.transmitting_radio, "dead player must not transmit");
 }
 
 /// Player inside a vehicle pressing local PTT: summary must block local PTT.

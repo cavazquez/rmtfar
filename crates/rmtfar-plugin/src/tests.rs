@@ -19,12 +19,7 @@ const SENDER_SESSION: u32 = 42;
 
 /// Create a minimal `RadioStateMessage`.
 fn make_msg(local: PlayerSummary, sender: PlayerSummary) -> RadioStateMessage {
-    RadioStateMessage::new(
-        "srv".into(),
-        1,
-        LOCAL_ID.into(),
-        vec![local, sender],
-    )
+    RadioStateMessage::new("srv".into(), 1, LOCAL_ID.into(), vec![local, sender])
 }
 
 /// Build a minimal `PlayerSummary` for the local listener.
@@ -107,7 +102,9 @@ fn sender_local(pos: [f32; 3], transmitting: bool) -> PlayerSummary {
 fn plugin_with_state(msg: RadioStateMessage) -> Plugin {
     let mut plugin = Plugin::new();
     plugin.state.update(msg);
-    plugin.state.register_session(SENDER_SESSION, SENDER_ID.into());
+    plugin
+        .state
+        .register_session(SENDER_SESSION, SENDER_ID.into());
     plugin
 }
 
@@ -209,7 +206,16 @@ fn radio_within_range_passes() {
 fn dead_sender_mutes() {
     let msg = make_msg(
         local_player("43.0", 1),
-        sender_sr("43.0", 1, 500.0, [200.0, 0.0, 0.0], false, false, true, false),
+        sender_sr(
+            "43.0",
+            1,
+            500.0,
+            [200.0, 0.0, 0.0],
+            false,
+            false,
+            true,
+            false,
+        ),
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
@@ -221,7 +227,16 @@ fn dead_sender_mutes() {
 fn unconscious_sender_mutes() {
     let msg = make_msg(
         local_player("43.0", 1),
-        sender_sr("43.0", 1, 500.0, [200.0, 0.0, 0.0], false, true, false, false),
+        sender_sr(
+            "43.0",
+            1,
+            500.0,
+            [200.0, 0.0, 0.0],
+            false,
+            true,
+            false,
+            false,
+        ),
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
@@ -252,10 +267,7 @@ fn sender_in_vehicle_no_radio_ptt_mutes() {
 
 #[test]
 fn local_voice_within_range_passes() {
-    let msg = make_msg(
-        local_player("", 1),
-        sender_local([20.0, 0.0, 0.0], true),
-    );
+    let msg = make_msg(local_player("", 1), sender_local([20.0, 0.0, 0.0], true));
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
     let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
@@ -264,10 +276,7 @@ fn local_voice_within_range_passes() {
 
 #[test]
 fn local_voice_out_of_range_mutes() {
-    let msg = make_msg(
-        local_player("", 1),
-        sender_local([60.0, 0.0, 0.0], true),
-    );
+    let msg = make_msg(local_player("", 1), sender_local([60.0, 0.0, 0.0], true));
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
     let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
@@ -276,10 +285,7 @@ fn local_voice_out_of_range_mutes() {
 
 #[test]
 fn local_voice_attenuation_applied() {
-    let msg = make_msg(
-        local_player("", 1),
-        sender_local([25.0, 0.0, 0.0], true),
-    );
+    let msg = make_msg(local_player("", 1), sender_local([25.0, 0.0, 0.0], true));
     let mut plugin = plugin_with_state(msg);
     let mut samples = vec![1.0f32; 480];
     plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
@@ -296,7 +302,10 @@ fn local_voice_attenuation_applied() {
 
 #[test]
 fn unknown_user_passes_through() {
-    let msg = make_msg(local_player("43.0", 1), sender_sr("43.0", 1, 500.0, [0.0, 0.0, 0.0], true, true, true, false));
+    let msg = make_msg(
+        local_player("43.0", 1),
+        sender_sr("43.0", 1, 500.0, [0.0, 0.0, 0.0], true, true, true, false),
+    );
     let mut plugin = plugin_with_state(msg);
     // Use a session ID that was NOT registered
     let unknown_session = 999u32;
