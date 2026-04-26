@@ -1,0 +1,58 @@
+name: Dependency Audit
+
+on:
+  # 1 de diciembre a las 09:00 UTC
+  schedule:
+    - cron: "0 9 1 12 *"
+
+  # Ejecución manual desde la pestaña Actions
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Permite abrir issues automáticamente si se configura en el futuro
+  issues: write
+
+jobs:
+  audit:
+    name: cargo audit + cargo outdated
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-audit-
+
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
+      - name: Install cargo-outdated
+        run: cargo install cargo-outdated --locked
+
+      - name: Run cargo audit (vulnerabilidades conocidas)
+        run: cargo audit
+
+      - name: Run cargo outdated (dependencias desactualizadas)
+        # --exit-code 0 para no fallar el job si hay updates disponibles;
+        # el reporte sigue apareciendo en el log.
+        run: cargo outdated --workspace --exit-code 0
+
+      - name: Resumen del workspace
+        run: |
+          echo "## Versiones de dependencias directas" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cargo tree --workspace --depth 1 2>/dev/null >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
