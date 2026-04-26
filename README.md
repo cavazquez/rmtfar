@@ -255,14 +255,17 @@ RELEASE=1 ./scripts/build-extension.sh
 
 La DLL queda en `arma-mod/@rmtfar/rmtfar_x64.dll`, lista para copiar al directorio del mod en Windows.
 
-### Verificar símbolos exportados
+### Verificar exports PE
+
+`strip = true` en release elimina la tabla COFF (que usa `nm`), pero preserva la **Export Table PE** que Windows y Arma 3 usan. Verificar con `objdump`:
 
 ```bash
-x86_64-w64-mingw32-nm --demangle arma-mod/@rmtfar/rmtfar_x64.dll | grep RVExtension
+x86_64-w64-mingw32-objdump -p arma-mod/@rmtfar/rmtfar_x64.dll | grep -A5 "Ordinal/Name"
 # Salida esperada:
-# 0000000180001000 T RVExtension
-# 0000000180001080 T RVExtensionArgs
-# 0000000180001160 T RVExtensionVersion
+# [Ordinal/Name Pointer] Table -- Ordinal Base 1
+#     [   0] +base[   1]  0000 RVExtension
+#     [   1] +base[   2]  0001 RVExtensionArgs
+#     [   2] +base[   3]  0002 RVExtensionVersion
 ```
 
 ### Uso desde SQF

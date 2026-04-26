@@ -133,13 +133,19 @@ jobs:
       - name: Compilar extension DLL (release)
         run: cargo build --release -p rmtfar-extension --target x86_64-pc-windows-gnu
 
-      - name: Verificar símbolos exportados (RVExtension*)
+      - name: Verificar exports PE (RVExtension*)
         run: |
           DLL=target/x86_64-pc-windows-gnu/release/rmtfar.dll
           echo "=== Tamaño ==="
           ls -lh "$DLL"
-          echo "=== Símbolos RVExtension exportados ==="
-          x86_64-w64-mingw32-nm --demangle "$DLL" | grep -E 'RVExtension'
+          echo "=== Export table PE ==="
+          # nm no funciona con strip=true; objdump -p lee la export table del PE header
+          x86_64-w64-mingw32-objdump -p "$DLL" | grep -A 20 "Ordinal/Name Pointer"
+          # Fallar si alguno de los 3 exports requeridos no está presente
+          x86_64-w64-mingw32-objdump -p "$DLL" | grep -q "RVExtension$"
+          x86_64-w64-mingw32-objdump -p "$DLL" | grep -q "RVExtensionArgs"
+          x86_64-w64-mingw32-objdump -p "$DLL" | grep -q "RVExtensionVersion"
+          echo "=== Todos los exports requeridos presentes ==="
 
       - name: Renombrar a rmtfar_x64.dll
         run: cp target/x86_64-pc-windows-gnu/release/rmtfar.dll rmtfar_x64.dll
