@@ -52,12 +52,15 @@ impl Plugin {
     }
 
     pub(crate) fn start(&mut self) -> bool {
-        // Inicializar tracing hacia stderr para que los logs aparezcan en
+        // Inicializar tracing hacia stderr.
+        // RMTFAR_LOG acepta "error", "warn", "info", "debug" o "trace".
         // journalctl: journalctl --user -f | grep RMTFAR
+        let level = std::env::var("RMTFAR_LOG")
+            .ok()
+            .and_then(|s| s.parse::<tracing::Level>().ok())
+            .unwrap_or(tracing::Level::DEBUG);
         let _ = tracing_subscriber::fmt()
-            .with_env_filter(
-                std::env::var("RMTFAR_LOG").unwrap_or_else(|_| "rmtfar_plugin=debug".into()),
-            )
+            .with_max_level(level)
             .with_writer(std::io::stderr)
             .try_init();
 
