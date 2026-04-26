@@ -1,4 +1,6 @@
-//! Plugin-side state: the latest RadioStateMessage and identity mapping.
+// SPDX-License-Identifier: GPL-3.0
+
+//! Plugin-side state: the latest `RadioStateMessage` and identity mapping.
 
 use rmtfar_protocol::RadioStateMessage;
 use std::collections::HashMap;
@@ -6,7 +8,7 @@ use std::collections::HashMap;
 #[derive(Default)]
 pub struct PluginState {
     last: Option<RadioStateMessage>,
-    /// Mumble numeric user ID (as string) → SteamID64
+    /// Mumble numeric user ID (as string) → `SteamID64`
     mumble_to_steam: HashMap<String, String>,
 }
 
@@ -19,7 +21,7 @@ impl PluginState {
         self.last.as_ref()
     }
 
-    /// Register a mapping from Mumble's numeric user ID to a SteamID64.
+    /// Register a mapping from Mumble's numeric user ID to a `SteamID64`.
     pub fn register_identity(&mut self, mumble_id: &str, steam_id: String) {
         self.mumble_to_steam.insert(mumble_id.to_string(), steam_id);
     }

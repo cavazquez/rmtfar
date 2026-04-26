@@ -9,8 +9,8 @@ pub struct BridgeSender {
 
 impl BridgeSender {
     pub fn new() -> Self {
-        let socket = UdpSocket::bind("127.0.0.1:0")
-            .expect("RMTFAR: Failed to bind sender UDP socket");
+        let socket =
+            UdpSocket::bind("127.0.0.1:0").expect("RMTFAR: Failed to bind sender UDP socket");
         socket
             .connect(format!("127.0.0.1:{BRIDGE_RECV_PORT}"))
             .expect("RMTFAR: Failed to connect sender to bridge");

@@ -3,6 +3,7 @@
 use rmtfar_protocol::{distance, PlayerState, RADIO_LR_RANGE_M, RADIO_SR_RANGE_M};
 
 /// Returns true if `receiver` can hear `transmitter` on radio.
+#[allow(dead_code)]
 pub fn can_hear_radio(transmitter: &PlayerState, receiver: &PlayerState) -> bool {
     if !transmitter.alive || !receiver.alive {
         return false;
@@ -33,6 +34,7 @@ pub fn can_hear_radio(transmitter: &PlayerState, receiver: &PlayerState) -> bool
 }
 
 /// Signal quality 0.0–1.0 based on distance vs max range.
+#[allow(dead_code)]
 pub fn signal_quality(dist_m: f32, range_m: f32) -> Option<f32> {
     if dist_m > range_m {
         return None;

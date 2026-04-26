@@ -51,12 +51,13 @@ impl Default for RadioConfig {
 ///
 /// Sent at ~20 Hz over UDP on loopback port 9500.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)] // Protocol fields, not flags
 pub struct PlayerState {
     /// Protocol version — must be [`PROTOCOL_VERSION`].
     pub v: u8,
     #[serde(rename = "type")]
     pub msg_type: String,
-    /// SteamID64 of the local player.
+    /// `SteamID64` of the local player.
     pub steam_id: String,
     /// `serverName` value from SQF (unique per session).
     pub server_id: String,
@@ -100,11 +101,17 @@ impl PlayerState {
     }
 
     pub fn is_transmitting_sr(&self) -> bool {
-        self.ptt_radio_sr && self.alive && self.conscious && self.radio_sr.as_ref().map_or(false, |r| r.enabled)
+        self.ptt_radio_sr
+            && self.alive
+            && self.conscious
+            && self.radio_sr.as_ref().is_some_and(|r| r.enabled)
     }
 
     pub fn is_transmitting_lr(&self) -> bool {
-        self.ptt_radio_lr && self.alive && self.conscious && self.radio_lr.as_ref().map_or(false, |r| r.enabled)
+        self.ptt_radio_lr
+            && self.alive
+            && self.conscious
+            && self.radio_lr.as_ref().is_some_and(|r| r.enabled)
     }
 }
 
@@ -114,6 +121,7 @@ impl PlayerState {
 
 /// Per-player summary sent from the bridge to the Mumble plugin.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[allow(clippy::struct_excessive_bools)] // Protocol fields, not flags
 pub struct PlayerSummary {
     pub steam_id: String,
     /// Position [x, y, z] in metres (ASL).
@@ -142,10 +150,22 @@ impl PlayerSummary {
         let (transmitting_radio, radio_type, radio_freq, radio_channel, radio_range_m) =
             if state.is_transmitting_sr() {
                 let cfg = state.radio_sr.as_ref().unwrap();
-                (true, "sr".into(), cfg.freq.clone(), cfg.channel, RADIO_SR_RANGE_M)
+                (
+                    true,
+                    "sr".into(),
+                    cfg.freq.clone(),
+                    cfg.channel,
+                    RADIO_SR_RANGE_M,
+                )
             } else if state.is_transmitting_lr() {
                 let cfg = state.radio_lr.as_ref().unwrap();
-                (true, "lr".into(), cfg.freq.clone(), cfg.channel, RADIO_LR_RANGE_M)
+                (
+                    true,
+                    "lr".into(),
+                    cfg.freq.clone(),
+                    cfg.channel,
+                    RADIO_LR_RANGE_M,
+                )
             } else {
                 (false, String::new(), String::new(), 0, 0.0)
             };
@@ -176,13 +196,18 @@ pub struct RadioStateMessage {
     pub msg_type: String,
     pub server_id: String,
     pub tick: u64,
-    /// SteamID64 of the local player (the one running the bridge).
+    /// `SteamID64` of the local player (the one running the bridge).
     pub local_player: String,
     pub players: Vec<PlayerSummary>,
 }
 
 impl RadioStateMessage {
-    pub fn new(server_id: String, tick: u64, local_player: String, players: Vec<PlayerSummary>) -> Self {
+    pub fn new(
+        server_id: String,
+        tick: u64,
+        local_player: String,
+        players: Vec<PlayerSummary>,
+    ) -> Self {
         Self {
             v: PROTOCOL_VERSION,
             msg_type: "radio_state".into(),
@@ -267,8 +292,11 @@ mod tests {
         let json = serde_json::to_string(&state).unwrap();
         let back: PlayerState = serde_json::from_str(&json).unwrap();
         assert_eq!(back.steam_id, state.steam_id);
-        assert_eq!(back.pos, state.pos);
-        assert_eq!(back.dir, state.dir);
+        // Float fields: compare element-wise with tolerance
+        for (a, b) in back.pos.iter().zip(state.pos.iter()) {
+            assert!((a - b).abs() < f32::EPSILON, "pos mismatch");
+        }
+        assert!((back.dir - state.dir).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -291,7 +319,7 @@ mod tests {
     #[test]
     fn distance_zero() {
         let p = [1.0f32, 2.0, 3.0];
-        assert_eq!(distance(&p, &p), 0.0);
+        assert!(distance(&p, &p) < f32::EPSILON);
     }
 
     #[test]
@@ -309,7 +337,7 @@ mod tests {
         assert!(summary.transmitting_radio);
         assert_eq!(summary.radio_type, "sr");
         assert_eq!(summary.radio_freq, "152.000");
-        assert_eq!(summary.radio_range_m, RADIO_SR_RANGE_M);
+        assert!((summary.radio_range_m - RADIO_SR_RANGE_M).abs() < f32::EPSILON);
     }
 
     #[test]

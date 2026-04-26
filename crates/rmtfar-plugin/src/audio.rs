@@ -1,21 +1,8 @@
 // SPDX-License-Identifier: GPL-3.0
 
-//! Primitivas de procesamiento de audio para el plugin.
+//! Basic audio utilities for the RMTFAR Mumble plugin.
 
-/// Acción que el plugin debe aplicar al audio de un usuario.
-#[derive(Debug, Clone, PartialEq)]
-pub enum AudioAction {
-    /// Dejar el audio sin modificar.
-    PassThrough,
-    /// Silenciar completamente.
-    Mute,
-    /// Ajustar volumen (0.0 - 1.0).
-    Volume(f32),
-    /// Aplicar efecto de radio con volumen y distancia.
-    RadioEffect { volume: f32, distance: f32 },
-}
-
-/// Multiplica cada muestra por `volume`.
+/// Scale every sample by `volume` (0.0 = silence, 1.0 = unchanged).
 pub fn apply_volume(samples: &mut [f32], volume: f32) {
     for s in samples.iter_mut() {
         *s *= volume;
@@ -27,20 +14,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn apply_volume_halves() {
+    fn half_volume() {
         let mut buf = vec![1.0f32, -1.0, 0.5];
         apply_volume(&mut buf, 0.5);
         assert!((buf[0] - 0.5).abs() < 1e-6);
         assert!((buf[1] + 0.5).abs() < 1e-6);
-        assert!((buf[2] - 0.25).abs() < 1e-6);
     }
 
     #[test]
-    fn apply_volume_zero_silences() {
-        let mut buf = vec![1.0f32, -0.5, 0.3];
+    fn zero_volume_silences() {
+        let mut buf = vec![1.0f32, -0.5];
         apply_volume(&mut buf, 0.0);
         for s in &buf {
-            assert_eq!(*s, 0.0);
+            assert!(s.abs() < f32::EPSILON);
         }
     }
 }

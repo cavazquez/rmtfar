@@ -77,7 +77,9 @@ unsafe impl Sync for Inner {}
 #[cfg(windows)]
 impl Inner {
     fn open() -> anyhow::Result<Self> {
-        use windows::Win32::System::Memory::{MapViewOfFile, OpenFileMappingW, FILE_MAP_ALL_ACCESS};
+        use windows::Win32::System::Memory::{
+            MapViewOfFile, OpenFileMappingW, FILE_MAP_ALL_ACCESS,
+        };
         let name: Vec<u16> = "MumbleLink\0".encode_utf16().collect();
         let handle = unsafe {
             OpenFileMappingW(
@@ -91,7 +93,9 @@ impl Inner {
         if view.Value.is_null() {
             anyhow::bail!("MapViewOfFile returned null");
         }
-        Ok(Self { ptr: view.Value as *mut LinkedMem })
+        Ok(Self {
+            ptr: view.Value as *mut LinkedMem,
+        })
     }
 
     fn write(&mut self, state: &PlayerState) {
@@ -148,7 +152,10 @@ impl Inner {
             anyhow::bail!("mmap failed: {}", std::io::Error::last_os_error());
         }
 
-        Ok(Self { ptr: ptr as *mut LinkedMem, size: LINKED_MEM_SIZE })
+        Ok(Self {
+            ptr: ptr.cast::<LinkedMem>(),
+            size: LINKED_MEM_SIZE,
+        })
     }
 
     fn write(&mut self, state: &PlayerState) {
@@ -159,7 +166,7 @@ impl Inner {
 #[cfg(unix)]
 impl Drop for Inner {
     fn drop(&mut self) {
-        unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.size) };
+        unsafe { libc::munmap(self.ptr.cast::<libc::c_void>(), self.size) };
     }
 }
 
@@ -167,7 +174,7 @@ impl Drop for Inner {
 // Shared write logic
 // ---------------------------------------------------------------------------
 
-/// Write player state into the LinkedMem struct.
+/// Write player state into the `LinkedMem` struct.
 ///
 /// Coordinate conversion:
 /// - Arma 3: X = east, Y = north, Z = altitude ASL (metres)
@@ -199,7 +206,10 @@ unsafe fn write_state(lm: *mut LinkedMem, state: &PlayerState) {
     let ctx = state.server_id.as_bytes();
     let ctx_len = ctx.len().min(lm.context.len());
     lm.context[..ctx_len].copy_from_slice(&ctx[..ctx_len]);
-    lm.context_len = ctx_len as u32;
+    #[allow(clippy::cast_possible_truncation)]
+    {
+        lm.context_len = ctx_len as u32;
+    }
 }
 
 fn write_wstr(buf: &mut [u16], s: &str) {

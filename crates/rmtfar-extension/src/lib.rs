@@ -101,8 +101,9 @@ unsafe fn write_output(output: *mut c_char, size: c_int, data: &str) {
         return;
     }
     let bytes = data.as_bytes();
+    #[allow(clippy::cast_sign_loss)]
     let capacity = (size as usize).saturating_sub(1);
     let len = bytes.len().min(capacity);
-    std::ptr::copy_nonoverlapping(bytes.as_ptr(), output as *mut u8, len);
+    std::ptr::copy_nonoverlapping(bytes.as_ptr(), output.cast::<u8>(), len);
     *output.add(len) = 0;
 }

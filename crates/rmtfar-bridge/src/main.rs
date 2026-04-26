@@ -112,7 +112,10 @@ fn build_message(store: &PlayerStore, local_id: &str) -> RadioStateMessage {
         .map(|s| (s.server_id.clone(), s.tick))
         .unwrap_or_default();
 
-    let players = store.all().map(PlayerSummary::from_state).collect::<Vec<_>>();
+    let players = store
+        .all()
+        .map(PlayerSummary::from_state)
+        .collect::<Vec<_>>();
 
     RadioStateMessage::new(server_id, tick, local_id.to_string(), players)
 }

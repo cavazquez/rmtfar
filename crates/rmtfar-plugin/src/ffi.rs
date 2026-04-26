@@ -39,7 +39,11 @@ pub unsafe extern "C" fn mumble_init(
     _mumble_data_dir: *const c_char,
     _mumble_install_dir: *const c_char,
 ) -> mumble_error_t {
-    if plugin().start() { MUMBLE_STATUS_OK } else { MUMBLE_EC_GENERIC_ERROR }
+    if plugin().start() {
+        MUMBLE_STATUS_OK
+    } else {
+        MUMBLE_EC_GENERIC_ERROR
+    }
 }
 
 /// # Safety
@@ -52,33 +56,53 @@ pub unsafe extern "C" fn mumble_shutdown() {
 #[no_mangle]
 pub unsafe extern "C" fn mumble_getName() -> MumbleStringWrapper {
     static NAME: &[u8] = b"RMTFAR\0";
-    MumbleStringWrapper { data: NAME.as_ptr() as *const c_char, size: 6, needs_release: false }
+    MumbleStringWrapper {
+        data: NAME.as_ptr().cast::<c_char>(),
+        size: 6,
+        needs_release: false,
+    }
 }
 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn mumble_getAPIVersion() -> mumble_version_t {
-    mumble_version_t { major: 1, minor: 4, patch: 0 }
+    mumble_version_t {
+        major: 1,
+        minor: 4,
+        patch: 0,
+    }
 }
 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn mumble_getVersion() -> mumble_version_t {
-    mumble_version_t { major: 0, minor: 1, patch: 0 }
+    mumble_version_t {
+        major: 0,
+        minor: 1,
+        patch: 0,
+    }
 }
 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn mumble_getAuthor() -> MumbleStringWrapper {
     static A: &[u8] = b"RMTFAR Contributors\0";
-    MumbleStringWrapper { data: A.as_ptr() as *const c_char, size: A.len() - 1, needs_release: false }
+    MumbleStringWrapper {
+        data: A.as_ptr().cast::<c_char>(),
+        size: A.len() - 1,
+        needs_release: false,
+    }
 }
 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn mumble_getDescription() -> MumbleStringWrapper {
     static D: &[u8] = b"Radio communication mod for Arma 3 (RMTFAR)\0";
-    MumbleStringWrapper { data: D.as_ptr() as *const c_char, size: D.len() - 1, needs_release: false }
+    MumbleStringWrapper {
+        data: D.as_ptr().cast::<c_char>(),
+        size: D.len() - 1,
+        needs_release: false,
+    }
 }
 
 /// # Safety
@@ -130,7 +154,9 @@ pub unsafe extern "C" fn mumble_onUserIdentityChanged(
     }
     if let Ok(s) = std::ffi::CStr::from_ptr(identity).to_str() {
         if !s.is_empty() {
-            plugin().state.register_identity(&user_id.to_string(), s.to_string());
+            plugin()
+                .state
+                .register_identity(&user_id.to_string(), s.to_string());
         }
     }
 }

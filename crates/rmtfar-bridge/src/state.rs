@@ -27,6 +27,7 @@ impl PlayerStore {
     }
 
     /// Remove players whose tick is older than `max_age_ticks` behind the newest.
+    #[allow(dead_code)]
     pub fn evict_stale(&mut self, max_age_ticks: u64) {
         if self.players.is_empty() {
             return;

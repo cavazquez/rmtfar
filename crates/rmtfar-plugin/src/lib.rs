@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0
+
 //! RMTFAR Mumble Plugin.
 //!
 //! Implements the Mumble Plugin API (v1.4.0+) to intercept audio streams and
@@ -13,7 +15,7 @@ pub mod dsp;
 pub mod ffi;
 pub mod state;
 
-use rmtfar_protocol::{distance, RadioStateMessage, PLUGIN_RECV_PORT, LOCAL_VOICE_RANGE_M};
+use rmtfar_protocol::{distance, RadioStateMessage, LOCAL_VOICE_RANGE_M, PLUGIN_RECV_PORT};
 use state::PluginState;
 use std::net::UdpSocket;
 use std::sync::{Mutex, OnceLock};
@@ -28,7 +30,7 @@ fn plugin() -> std::sync::MutexGuard<'static, Plugin> {
     PLUGIN
         .get_or_init(|| Mutex::new(Plugin::new()))
         .lock()
-        .unwrap_or_else(|p| p.into_inner())
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
 }
 
 pub(crate) struct Plugin {
@@ -70,9 +72,7 @@ impl Plugin {
         loop {
             match sock.recv(self.buf.as_mut_slice()) {
                 Ok(len) => {
-                    if let Ok(msg) =
-                        serde_json::from_slice::<RadioStateMessage>(&self.buf[..len])
-                    {
+                    if let Ok(msg) = serde_json::from_slice::<RadioStateMessage>(&self.buf[..len]) {
                         self.state.update(msg);
                     }
                 }

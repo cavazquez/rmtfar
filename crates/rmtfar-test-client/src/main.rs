@@ -1,149 +1,233 @@
-//! RMTFAR Test Client — simulates an Arma 3 player sending state to the bridge.
-//!
-//! Usage examples:
-//!   rmtfar-test-client --steam-id 111 --pos 0,0,10
-//!   rmtfar-test-client --steam-id 222 --pos 100,0,10 --freq 152.000 --ptt-radio
-//!   rmtfar-test-client --steam-id 333 --pos 50,0,10 --freq 155.000
+// SPDX-License-Identifier: GPL-3.0
 
-use anyhow::Result;
-use clap::Parser;
-use rmtfar_protocol::{PlayerState, RadioConfig, BRIDGE_RECV_PORT, PROTOCOL_VERSION};
+//! Test client that simulates an Arma 3 player sending state to the bridge.
+//!
+//! Usage:
+//! ```
+//! # Static player at [100, 0, 200]
+//! rmtfar-test-client --id player1 --pos 100,0,200
+//!
+//! # Player orbiting the origin with 50 m radius
+//! rmtfar-test-client --id player1 --orbit --orbit-radius 50
+//!
+//! # Player with local PTT active
+//! rmtfar-test-client --id player1 --ptt-local
+//!
+//! # Player transmitting on SR radio at 152.000
+//! rmtfar-test-client --id player1 --ptt-radio --freq 152.000
+//! ```
+
+use anyhow::{Context, Result};
+use rmtfar_protocol::{PlayerState, RadioConfig};
 use std::net::UdpSocket;
 use std::time::{Duration, Instant};
-use tracing::info;
 
-#[derive(Parser)]
-#[command(name = "rmtfar-test-client", version, about = "Simulates an Arma 3 player for RMTFAR testing")]
-struct Cli {
-    #[arg(long, default_value = "76561198000000001")]
-    steam_id: String,
-
-    #[arg(long, default_value = "test-server:2302")]
-    server_id: String,
-
-    /// Position as x,y,z in metres
-    #[arg(long, default_value = "0,0,10")]
-    pos: String,
-
-    #[arg(long, default_value_t = 0.0)]
-    dir: f32,
-
-    #[arg(long, default_value = "152.000")]
-    freq: String,
-
-    #[arg(long, default_value_t = 1)]
-    channel: u8,
-
-    #[arg(long)]
-    ptt_local: bool,
-
-    #[arg(long)]
-    ptt_radio: bool,
-
-    #[arg(long)]
-    dead: bool,
-
-    /// Simulate circular movement with this radius in metres
-    #[arg(long, default_value_t = 0.0)]
-    circle_radius: f32,
-
-    #[arg(long, default_value_t = 20.0)]
-    hz: f32,
-
-    #[arg(long, default_value = "127.0.0.1")]
-    bridge_host: String,
-
-    #[arg(long, default_value_t = BRIDGE_RECV_PORT)]
-    bridge_port: u16,
-}
-
-fn parse_pos(s: &str) -> Result<[f32; 3]> {
-    let parts: Vec<f32> = s
-        .split(',')
-        .map(|v| v.trim().parse::<f32>())
-        .collect::<Result<_, _>>()?;
-    anyhow::ensure!(parts.len() == 3, "pos must be x,y,z");
-    Ok([parts[0], parts[1], parts[2]])
-}
+const BRIDGE_ADDR: &str = "127.0.0.1:9500";
+const SEND_INTERVAL: Duration = Duration::from_millis(50); // 20 Hz
 
 fn main() -> Result<()> {
-    tracing_subscriber::fmt().with_env_filter("info").init();
+    let args: Vec<String> = std::env::args().collect();
+    let config = parse_args(&args)?;
 
-    let cli = Cli::parse();
-    let socket = UdpSocket::bind("127.0.0.1:0")?;
-    let target = format!("{}:{}", cli.bridge_host, cli.bridge_port);
-    socket.connect(&target)?;
-    info!("Sending to bridge at {target}");
+    let socket = UdpSocket::bind("127.0.0.1:0").context("bind")?;
+    socket.connect(BRIDGE_ADDR).context("connect")?;
 
-    let base_pos = parse_pos(&cli.pos)?;
-    let interval = Duration::from_secs_f32(1.0 / cli.hz.max(1.0));
+    println!("RMTFAR Test Client");
+    println!("  Player : {}", config.steam_id);
+    println!("  Server : {}", config.server_id);
+    println!("  Mode   : {}", config.mode_label());
+    println!("  Target : {BRIDGE_ADDR} @ 20 Hz  (Ctrl-C to stop)\n");
+
     let start = Instant::now();
     let mut tick: u64 = 0;
 
-    info!(
-        steam_id = %cli.steam_id,
-        pos = ?base_pos,
-        freq = %cli.freq,
-        "Starting simulation"
-    );
-
     loop {
         let elapsed = start.elapsed().as_secs_f32();
-        let pos = if cli.circle_radius > 0.0 {
-            let angle = elapsed * std::f32::consts::TAU / 30.0;
-            [
-                base_pos[0] + cli.circle_radius * angle.sin(),
-                base_pos[1],
-                base_pos[2] + cli.circle_radius * angle.cos(),
-            ]
-        } else {
-            base_pos
-        };
+        let pos = config.current_pos(elapsed);
+        let dir = config.current_dir(elapsed);
 
-        let dir = if cli.circle_radius > 0.0 {
-            let angle = elapsed * std::f32::consts::TAU / 30.0;
-            angle.to_degrees().rem_euclid(360.0)
-        } else {
-            cli.dir
-        };
+        let msg = build_state(&config, tick, pos, dir);
+        let json = serde_json::to_vec(&msg)?;
+        socket.send(&json).context("send")?;
 
-        let state = PlayerState {
-            v: PROTOCOL_VERSION,
-            msg_type: "player_state".into(),
-            steam_id: cli.steam_id.clone(),
-            server_id: cli.server_id.clone(),
-            tick,
-            pos,
-            dir,
-            alive: !cli.dead,
-            conscious: true,
-            vehicle: String::new(),
-            ptt_local: cli.ptt_local,
-            ptt_radio_sr: cli.ptt_radio,
-            ptt_radio_lr: false,
-            radio_sr: Some(RadioConfig {
-                freq: cli.freq.clone(),
-                channel: cli.channel,
-                volume: 1.0,
-                enabled: true,
-            }),
-            radio_lr: None,
-        };
-
-        match serde_json::to_vec(&state) {
-            Ok(json) => {
-                if let Err(e) = socket.send(&json) {
-                    eprintln!("Send error: {e}");
-                }
-            }
-            Err(e) => eprintln!("Encode error: {e}"),
-        }
-
-        if tick % (cli.hz as u64 * 5) == 0 {
-            info!(tick, pos = ?pos, dir, "heartbeat");
-        }
+        println!(
+            "[{:>8.2}s] tick={:<6} pos=[{:>8.1}, {:>8.1}, {:>6.1}] dir={:>5.1}° \
+             ptt_local={} ptt_sr={}",
+            elapsed, tick, pos[0], pos[1], pos[2], dir, config.ptt_local, config.ptt_radio_sr,
+        );
 
         tick += 1;
-        std::thread::sleep(interval);
+        std::thread::sleep(SEND_INTERVAL);
     }
+}
+
+fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState {
+    PlayerState {
+        v: 1,
+        msg_type: "player_state".into(),
+        steam_id: cfg.steam_id.clone(),
+        server_id: cfg.server_id.clone(),
+        tick,
+        pos,
+        dir,
+        alive: true,
+        conscious: true,
+        vehicle: String::new(),
+        ptt_local: cfg.ptt_local,
+        ptt_radio_sr: cfg.ptt_radio_sr,
+        ptt_radio_lr: false,
+        radio_sr: Some(RadioConfig {
+            freq: cfg.freq.clone(),
+            channel: 1,
+            volume: 1.0,
+            enabled: true,
+        }),
+        radio_lr: None,
+    }
+}
+
+struct Config {
+    steam_id: String,
+    server_id: String,
+    base_pos: [f32; 3],
+    orbit: bool,
+    orbit_radius: f32,
+    orbit_period_s: f32,
+    ptt_local: bool,
+    ptt_radio_sr: bool,
+    freq: String,
+}
+
+impl Config {
+    fn mode_label(&self) -> String {
+        if self.orbit {
+            format!(
+                "orbit (r={:.0} m, T={:.0} s)",
+                self.orbit_radius, self.orbit_period_s
+            )
+        } else {
+            format!(
+                "static @ [{:.1}, {:.1}, {:.1}]",
+                self.base_pos[0], self.base_pos[1], self.base_pos[2]
+            )
+        }
+    }
+
+    fn current_pos(&self, t: f32) -> [f32; 3] {
+        if self.orbit {
+            let angle = 2.0 * std::f32::consts::PI * t / self.orbit_period_s;
+            [
+                self.base_pos[0] + self.orbit_radius * angle.sin(),
+                self.base_pos[1],
+                self.base_pos[2] + self.orbit_radius * angle.cos(),
+            ]
+        } else {
+            self.base_pos
+        }
+    }
+
+    fn current_dir(&self, t: f32) -> f32 {
+        if self.orbit {
+            let angle = 2.0 * std::f32::consts::PI * t / self.orbit_period_s;
+            (angle.to_degrees() + 90.0).rem_euclid(360.0)
+        } else {
+            0.0
+        }
+    }
+}
+
+fn parse_args(args: &[String]) -> Result<Config> {
+    let mut steam_id = "76561198000000001".to_string();
+    let mut server_id = "127.0.0.1:2302".to_string();
+    let mut base_pos = [0.0f32; 3];
+    let mut orbit = false;
+    let mut orbit_radius = 50.0f32;
+    let mut orbit_period_s = 30.0f32;
+    let mut ptt_local = false;
+    let mut ptt_radio_sr = false;
+    let mut freq = "152.000".to_string();
+
+    let mut i = 1usize;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--id" => {
+                steam_id = next_arg(args, &mut i)?;
+            }
+            "--server" => {
+                server_id = next_arg(args, &mut i)?;
+            }
+            "--pos" => {
+                let s = next_arg(args, &mut i)?;
+                let parts: Vec<f32> = s.split(',').filter_map(|x| x.parse().ok()).collect();
+                anyhow::ensure!(parts.len() == 3, "--pos requires x,y,z e.g. 100,0,200");
+                base_pos = [parts[0], parts[1], parts[2]];
+            }
+            "--orbit" => {
+                orbit = true;
+                i += 1;
+            }
+            "--orbit-radius" => {
+                orbit_radius = next_arg(args, &mut i)?.parse().context("--orbit-radius")?;
+            }
+            "--orbit-period" => {
+                orbit_period_s = next_arg(args, &mut i)?.parse().context("--orbit-period")?;
+            }
+            "--ptt-local" => {
+                ptt_local = true;
+                i += 1;
+            }
+            "--ptt-radio" => {
+                ptt_radio_sr = true;
+                i += 1;
+            }
+            "--freq" => {
+                freq = next_arg(args, &mut i)?;
+            }
+            "--help" | "-h" => {
+                print_help();
+                std::process::exit(0);
+            }
+            other => anyhow::bail!("Unknown argument: {other}. Use --help."),
+        }
+    }
+
+    Ok(Config {
+        steam_id,
+        server_id,
+        base_pos,
+        orbit,
+        orbit_radius,
+        orbit_period_s,
+        ptt_local,
+        ptt_radio_sr,
+        freq,
+    })
+}
+
+fn next_arg(args: &[String], i: &mut usize) -> Result<String> {
+    *i += 1;
+    let v = args
+        .get(*i)
+        .cloned()
+        .context("expected argument after flag")?;
+    *i += 1;
+    Ok(v)
+}
+
+fn print_help() {
+    println!("rmtfar-test-client — Simulate an Arma 3 player for RMTFAR testing\n");
+    println!("OPTIONS:");
+    println!("  --id <steam_id>       Player SteamID64      (default: 76561198000000001)");
+    println!("  --server <ip:port>    Server identifier      (default: 127.0.0.1:2302)");
+    println!("  --pos <x,y,z>         Static position (m)    (default: 0,0,0)");
+    println!("  --orbit               Circular movement around --pos");
+    println!("  --orbit-radius <m>    Orbit radius in metres (default: 50)");
+    println!("  --orbit-period <s>    Orbit period in seconds (default: 30)");
+    println!("  --ptt-local           Activate local PTT (direct voice)");
+    println!("  --ptt-radio           Activate SR radio PTT");
+    println!("  --freq <freq>         SR radio frequency     (default: 152.000)");
+    println!("  --help                Print this help\n");
+    println!("EXAMPLE - test proximity audio with two terminals:");
+    println!("  Terminal 1: rmtfar-test-client --id p1 --pos 0,0,0 --ptt-local");
+    println!("  Terminal 2: rmtfar-test-client --id p2 --orbit --ptt-local");
 }
