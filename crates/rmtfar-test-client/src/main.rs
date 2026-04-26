@@ -52,9 +52,10 @@ fn main() -> Result<()> {
 
         println!(
             "[{:>8.2}s] tick={:<6} pos=[{:>8.1}, {:>8.1}, {:>6.1}] dir={:>5.1}° \
-             ptt_local={} ptt_sr={} alive={} conscious={}",
+             ptt_local={} ptt_sr={} ptt_lr={} alive={} conscious={}",
             elapsed, tick, pos[0], pos[1], pos[2], dir,
-            config.ptt_local, config.ptt_radio_sr, config.alive, config.conscious,
+            config.ptt_local, config.ptt_radio_sr, config.ptt_radio_lr,
+            config.alive, config.conscious,
         );
 
         tick += 1;
@@ -76,7 +77,7 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
         vehicle: String::new(),
         ptt_local: cfg.ptt_local,
         ptt_radio_sr: cfg.ptt_radio_sr,
-        ptt_radio_lr: false,
+        ptt_radio_lr: cfg.ptt_radio_lr,
         radio_sr: Some(RadioConfig {
             freq: cfg.freq.clone(),
             channel: cfg.channel,
@@ -84,7 +85,13 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
             enabled: true,
             range_m: cfg.radio_range_m,
         }),
-        radio_lr: None,
+        radio_lr: Some(RadioConfig {
+            freq: cfg.freq_lr.clone(),
+            channel: cfg.channel_lr,
+            volume: 1.0,
+            enabled: !cfg.freq_lr.is_empty(),
+            range_m: cfg.radio_range_lr_m,
+        }),
     }
 }
 
@@ -96,10 +103,17 @@ struct Config {
     orbit_radius: f32,
     orbit_period_s: f32,
     ptt_local: bool,
+    // SR radio
     ptt_radio_sr: bool,
     freq: String,
     channel: u8,
     radio_range_m: Option<f32>,
+    // LR radio
+    ptt_radio_lr: bool,
+    freq_lr: String,
+    channel_lr: u8,
+    radio_range_lr_m: Option<f32>,
+    // Player state
     alive: bool,
     conscious: bool,
 }
@@ -154,6 +168,10 @@ fn parse_args(args: &[String]) -> Result<Config> {
     let mut freq = "152.000".to_string();
     let mut channel: u8 = 1;
     let mut radio_range_m: Option<f32> = None;
+    let mut ptt_radio_lr = false;
+    let mut freq_lr = String::new();
+    let mut channel_lr: u8 = 1;
+    let mut radio_range_lr_m: Option<f32> = None;
     let mut alive = true;
     let mut conscious = true;
 
@@ -198,6 +216,25 @@ fn parse_args(args: &[String]) -> Result<Config> {
                     .parse()
                     .context("--channel expects a channel number (1-8)")?;
             }
+            "--ptt-radio-lr" => {
+                ptt_radio_lr = true;
+                i += 1;
+            }
+            "--freq-lr" => {
+                freq_lr = next_arg(args, &mut i)?;
+            }
+            "--channel-lr" => {
+                channel_lr = next_arg(args, &mut i)?
+                    .parse()
+                    .context("--channel-lr expects a channel number (1-8)")?;
+            }
+            "--radio-range-lr" => {
+                radio_range_lr_m = Some(
+                    next_arg(args, &mut i)?
+                        .parse()
+                        .context("--radio-range-lr expects metres as float")?,
+                );
+            }
             "--dead" => {
                 alive = false;
                 i += 1;
@@ -233,6 +270,10 @@ fn parse_args(args: &[String]) -> Result<Config> {
         freq,
         channel,
         radio_range_m,
+        ptt_radio_lr,
+        freq_lr,
+        channel_lr,
+        radio_range_lr_m,
         alive,
         conscious,
     })
@@ -261,9 +302,13 @@ fn print_help() {
     println!("  --ptt-radio           Activate SR radio PTT");
     println!("  --freq <freq>         SR radio frequency     (default: 152.000)");
     println!("  --channel <n>         SR radio channel 1-8              (default: 1)");
+    println!("  --radio-range <m>     Override SR radio range in metres  (default: 5000)");
+    println!("  --ptt-radio-lr        Activate LR radio PTT");
+    println!("  --freq-lr <freq>      LR radio frequency     (no default — disables LR)");
+    println!("  --channel-lr <n>      LR radio channel 1-8              (default: 1)");
+    println!("  --radio-range-lr <m>  Override LR radio range in metres (default: 20000)");
     println!("  --dead                Simulate dead player (all PTT blocked)");
     println!("  --unconscious         Simulate ACE unconscious (all PTT blocked)");
-    println!("  --radio-range <m>     Override SR radio range in metres  (default: 5000)");
     println!("  --help                Print this help\n");
     println!("EXAMPLE - test proximity audio with two terminals:");
     println!("  Terminal 1: rmtfar-test-client --id p1 --pos 0,0,0 --ptt-local");
