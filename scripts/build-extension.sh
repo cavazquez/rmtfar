@@ -2,9 +2,12 @@
 # SPDX-License-Identifier: GPL-3.0
 # build-extension.sh — Cross-compila rmtfar-extension para Windows x86_64.
 #
+# Usa cargo-xwin para producir binarios MSVC nativos desde Linux,
+# evitando problemas de inicialización de mingw.
+#
 # Requisitos (instalar una vez):
-#   sudo apt install mingw-w64
-#   rustup target add x86_64-pc-windows-gnu
+#   cargo install cargo-xwin
+#   rustup target add x86_64-pc-windows-msvc
 #
 # Uso:
 #   ./scripts/build-extension.sh           # debug
@@ -17,17 +20,17 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 cd "$REPO_ROOT"
 
-TARGET="x86_64-pc-windows-gnu"
+TARGET="x86_64-pc-windows-msvc"
 PROFILE="${RELEASE:+release}"
 PROFILE="${PROFILE:-debug}"
 CARGO_FLAGS="${RELEASE:+--release}"
 
 echo "=== Build Extension para Windows ($TARGET, $PROFILE) ==="
 
-# Verificar linker
-if ! command -v x86_64-w64-mingw32-gcc &>/dev/null; then
-    echo "ERROR: x86_64-w64-mingw32-gcc no encontrado."
-    echo "  Instalar con: sudo apt install mingw-w64"
+# Verificar cargo-xwin
+if ! command -v cargo-xwin &>/dev/null; then
+    echo "ERROR: cargo-xwin no encontrado."
+    echo "  Instalar con: cargo install cargo-xwin"
     exit 1
 fi
 
@@ -38,7 +41,7 @@ if ! rustup target list --installed | grep -q "$TARGET"; then
 fi
 
 # Compilar
-cargo build -p rmtfar-extension --target "$TARGET" ${CARGO_FLAGS:-}
+cargo xwin build -p rmtfar-extension --target "$TARGET" ${CARGO_FLAGS:-}
 
 # Cargo genera "rmtfar.dll"; Arma 3 espera "rmtfar_x64.dll" en sistemas 64-bit.
 SRC="target/$TARGET/$PROFILE/rmtfar.dll"

@@ -51,8 +51,31 @@ impl MumbleLink {
 }
 
 // ---------------------------------------------------------------------------
-// Windows implementation
+// Windows implementation (raw FFI — avoids the heavy `windows` crate)
 // ---------------------------------------------------------------------------
+
+#[cfg(windows)]
+mod win32 {
+    use std::ffi::c_void;
+
+    pub type HANDLE = *mut c_void;
+    pub const FILE_MAP_ALL_ACCESS: u32 = 0x000F001F;
+
+    extern "system" {
+        pub fn OpenFileMappingW(
+            desired_access: u32,
+            inherit_handle: i32,
+            name: *const u16,
+        ) -> HANDLE;
+        pub fn MapViewOfFile(
+            file_mapping: HANDLE,
+            desired_access: u32,
+            offset_high: u32,
+            offset_low: u32,
+            bytes_to_map: usize,
+        ) -> *mut c_void;
+    }
+}
 
 #[cfg(windows)]
 struct Inner {
@@ -66,25 +89,24 @@ unsafe impl Sync for Inner {}
 
 #[cfg(windows)]
 impl Inner {
-    fn open() -> anyhow::Result<Self> {
-        use windows::Win32::System::Memory::{
-            MapViewOfFile, OpenFileMappingW, FILE_MAP_ALL_ACCESS,
+    fn open() -> Result<Self, &'static str> {
+        const NAME: &[u16] = &[
+            b'M' as u16, b'u' as u16, b'm' as u16, b'b' as u16, b'l' as u16, b'e' as u16,
+            b'L' as u16, b'i' as u16, b'n' as u16, b'k' as u16, 0,
+        ];
+        let handle =
+            unsafe { win32::OpenFileMappingW(win32::FILE_MAP_ALL_ACCESS, 0, NAME.as_ptr()) };
+        if handle.is_null() {
+            return Err("OpenFileMappingW failed");
+        }
+        let view = unsafe {
+            win32::MapViewOfFile(handle, win32::FILE_MAP_ALL_ACCESS, 0, 0, LINKED_MEM_SIZE)
         };
-        let name: Vec<u16> = "MumbleLink\0".encode_utf16().collect();
-        let handle = unsafe {
-            OpenFileMappingW(
-                FILE_MAP_ALL_ACCESS.0,
-                false,
-                windows::core::PCWSTR(name.as_ptr()),
-            )
-            .map_err(|e| anyhow::anyhow!("OpenFileMappingW: {e}"))?
-        };
-        let view = unsafe { MapViewOfFile(handle, FILE_MAP_ALL_ACCESS, 0, 0, LINKED_MEM_SIZE) };
-        if view.Value.is_null() {
-            anyhow::bail!("MapViewOfFile returned null");
+        if view.is_null() {
+            return Err("MapViewOfFile returned null");
         }
         Ok(Self {
-            ptr: view.Value as *mut LinkedMem,
+            ptr: view as *mut LinkedMem,
         })
     }
 
@@ -110,11 +132,11 @@ unsafe impl Sync for Inner {}
 
 #[cfg(unix)]
 impl Inner {
-    fn open() -> anyhow::Result<Self> {
+    fn open() -> Result<Self, &'static str> {
         use std::ffi::CString;
 
         let uid = unsafe { libc::getuid() };
-        let name = CString::new(format!("/MumbleLink.{uid}"))?;
+        let name = CString::new(format!("/MumbleLink.{uid}")).map_err(|_| "bad shm name")?;
 
         let fd = unsafe {
             libc::shm_open(
@@ -124,14 +146,14 @@ impl Inner {
             )
         };
         if fd < 0 {
-            anyhow::bail!("shm_open failed: {}", std::io::Error::last_os_error());
+            return Err("shm_open failed");
         }
 
         #[allow(clippy::cast_possible_wrap)]
         let ret = unsafe { libc::ftruncate(fd, LINKED_MEM_SIZE as libc::off_t) };
         if ret < 0 {
             unsafe { libc::close(fd) };
-            anyhow::bail!("ftruncate failed: {}", std::io::Error::last_os_error());
+            return Err("ftruncate failed");
         }
 
         let ptr = unsafe {
@@ -147,7 +169,7 @@ impl Inner {
         unsafe { libc::close(fd) };
 
         if ptr == libc::MAP_FAILED {
-            anyhow::bail!("mmap failed: {}", std::io::Error::last_os_error());
+            return Err("mmap failed");
         }
 
         Ok(Self {

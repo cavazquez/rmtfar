@@ -20,14 +20,14 @@ CARGO_FLAGS="${RELEASE:+--release}"
 
 case "${TARGET:-linux}" in
   windows)
-    RUST_TARGET="x86_64-pc-windows-gnu"
+    RUST_TARGET="x86_64-pc-windows-msvc"
     OUT_FILE="rmtfar_plugin.dll"
     DEST_DIR="arma-mod/@rmtfar"
     INSTALL_PATH="%APPDATA%\\Mumble\\Plugins\\rmtfar_plugin.dll"
 
-    if ! command -v x86_64-w64-mingw32-gcc &>/dev/null; then
-      echo "ERROR: x86_64-w64-mingw32-gcc no encontrado."
-      echo "  Instalar con: sudo apt install mingw-w64"
+    if ! command -v cargo-xwin &>/dev/null; then
+      echo "ERROR: cargo-xwin no encontrado."
+      echo "  Instalar con: cargo install cargo-xwin"
       exit 1
     fi
     if ! rustup target list --installed | grep -q "$RUST_TARGET"; then
@@ -36,7 +36,7 @@ case "${TARGET:-linux}" in
     fi
 
     echo "=== Build Plugin Mumble para Windows ($RUST_TARGET, $PROFILE) ==="
-    cargo build -p rmtfar-plugin --target "$RUST_TARGET" ${CARGO_FLAGS:-}
+    cargo xwin build -p rmtfar-plugin --target "$RUST_TARGET" ${CARGO_FLAGS:-}
 
     SRC="target/$RUST_TARGET/$PROFILE/$OUT_FILE"
     cp "$SRC" "$DEST_DIR/$OUT_FILE"
@@ -46,9 +46,6 @@ case "${TARGET:-linux}" in
     echo ""
     echo "Instalado en: $DEST_DIR/$OUT_FILE"
     echo "Copiar en Windows a: $INSTALL_PATH"
-    echo ""
-    echo "Exports Mumble presentes:"
-    x86_64-w64-mingw32-objdump -p "$SRC" | grep "mumble_" | awk '{print "  " $NF}'
     ;;
 
   linux|*)
