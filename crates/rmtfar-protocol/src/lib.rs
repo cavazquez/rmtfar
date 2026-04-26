@@ -102,7 +102,12 @@ impl PlayerState {
     }
 
     pub fn is_transmitting_local(&self) -> bool {
-        self.ptt_local && self.alive && self.conscious
+        // Local (proximity) voice is blocked inside a vehicle — radio only.
+        self.ptt_local && self.alive && self.conscious && self.vehicle.is_empty()
+    }
+
+    pub fn is_in_vehicle(&self) -> bool {
+        !self.vehicle.is_empty()
     }
 
     pub fn is_transmitting_sr(&self) -> bool {
@@ -134,6 +139,9 @@ pub struct PlayerSummary {
     pub dir: f32,
     pub alive: bool,
     pub conscious: bool,
+    /// True when the player is inside any vehicle (local PTT is blocked).
+    #[serde(default)]
+    pub in_vehicle: bool,
     pub transmitting_local: bool,
     pub transmitting_radio: bool,
     /// Which radio type is transmitting: "sr", "lr", or ""
@@ -210,6 +218,7 @@ impl PlayerSummary {
             dir: state.dir,
             alive: state.alive,
             conscious: state.conscious,
+            in_vehicle: state.is_in_vehicle(),
             transmitting_local: state.is_transmitting_local(),
             transmitting_radio,
             radio_type,

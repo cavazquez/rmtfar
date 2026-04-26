@@ -184,6 +184,8 @@ impl Plugin {
                 tracing::debug!(uid = %sender.steam_id, "dead — muted");
             } else if !sender.conscious {
                 tracing::debug!(uid = %sender.steam_id, "unconscious — muted");
+            } else if sender.in_vehicle && !sender.transmitting_radio {
+                tracing::debug!(uid = %sender.steam_id, "in vehicle, no radio PTT — muted");
             } else {
                 tracing::debug!(uid = %sender.steam_id, "not transmitting — muted");
             }

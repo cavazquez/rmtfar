@@ -52,10 +52,10 @@ fn main() -> Result<()> {
 
         println!(
             "[{:>8.2}s] tick={:<6} pos=[{:>8.1}, {:>8.1}, {:>6.1}] dir={:>5.1}° \
-             ptt_local={} ptt_sr={} ptt_lr={} alive={} conscious={}",
+             ptt_local={} ptt_sr={} ptt_lr={} alive={} conscious={} vehicle={:?}",
             elapsed, tick, pos[0], pos[1], pos[2], dir,
             config.ptt_local, config.ptt_radio_sr, config.ptt_radio_lr,
-            config.alive, config.conscious,
+            config.alive, config.conscious, config.vehicle,
         );
 
         tick += 1;
@@ -74,7 +74,7 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
         dir,
         alive: cfg.alive,
         conscious: cfg.conscious,
-        vehicle: String::new(),
+        vehicle: cfg.vehicle.clone(),
         ptt_local: cfg.ptt_local,
         ptt_radio_sr: cfg.ptt_radio_sr,
         ptt_radio_lr: cfg.ptt_radio_lr,
@@ -116,6 +116,7 @@ struct Config {
     // Player state
     alive: bool,
     conscious: bool,
+    vehicle: String,
 }
 
 impl Config {
@@ -174,6 +175,7 @@ fn parse_args(args: &[String]) -> Result<Config> {
     let mut radio_range_lr_m: Option<f32> = None;
     let mut alive = true;
     let mut conscious = true;
+    let mut vehicle = String::new();
 
     let mut i = 1usize;
     while i < args.len() {
@@ -243,6 +245,9 @@ fn parse_args(args: &[String]) -> Result<Config> {
                 conscious = false;
                 i += 1;
             }
+            "--vehicle" => {
+                vehicle = next_arg(args, &mut i)?;
+            }
             "--radio-range" => {
                 radio_range_m = Some(
                     next_arg(args, &mut i)?
@@ -276,6 +281,7 @@ fn parse_args(args: &[String]) -> Result<Config> {
         radio_range_lr_m,
         alive,
         conscious,
+        vehicle,
     })
 }
 
@@ -307,6 +313,7 @@ fn print_help() {
     println!("  --freq-lr <freq>      LR radio frequency     (no default — disables LR)");
     println!("  --channel-lr <n>      LR radio channel 1-8              (default: 1)");
     println!("  --radio-range-lr <m>  Override LR radio range in metres (default: 20000)");
+    println!("  --vehicle <classname> Simulate being inside a vehicle (blocks local PTT)");
     println!("  --dead                Simulate dead player (all PTT blocked)");
     println!("  --unconscious         Simulate ACE unconscious (all PTT blocked)");
     println!("  --help                Print this help\n");
