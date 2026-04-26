@@ -9,7 +9,7 @@
 //!
 //! We bridge the two via the Mumble username:
 //! - `mumble_onUserAdded` queries the API for the username and stores
-//!   `session_id → username` in [`PluginState::session_to_name`].
+//!   `session_id → username` via [`PluginState::register_session`].
 //! - The bridge/test-client must register players **keyed by their Mumble username**.
 //!   In production this is the player's Arma 3 name or `SteamID64` string that
 //!   the game mod writes into the Mumble client's username field.
