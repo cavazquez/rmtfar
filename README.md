@@ -23,7 +23,7 @@
 | 🎙️ **Mumble 1.5+** | Transporte de voz (cliente, verificado en 1.5.735) |
 | 🖥️ **Murmur** | Servidor de voz |
 | 📦 **serde / serde_json** | Serialización del protocolo |
-| 🔊 **dasp** | DSP: filtro bandpass, soft-clip y ruido de radio |
+| 🔊 **dasp** | DSP: biquad bandpass, AGC, bitcrusher y ruido de radio |
 | 🧵 **UDP** | Comunicación local entre componentes |
 | 🧠 **MumbleLink** | Shared memory para audio posicional |
 | ⚙️ **C FFI** | Bindings al API de plugin de Mumble |
@@ -65,7 +65,7 @@
 │  │  - Lee MumbleLink (audio posicional)         │  │
 │  │  - Recibe radio state del bridge             │  │
 │  │  - Audio callbacks: mute/unmute por usuario  │  │
-│  │  - 🔊 DSP: bandpass + soft-clip + ruido      │  │
+│  │  - 🔊 DSP: biquad + AGC + bitcrusher + ruido  │  │
 │  └──────────────────────────────────────────────┘  │
 └───────────────────────────────────────────────────┘
 ```
@@ -91,13 +91,14 @@
 | **Filtro de frecuencia SR** — mute si no coincide | ✅ | string match exacto |
 | **Filtro de canal** — mute si distinto canal en misma freq | ✅ | u8 match |
 | **Rango de radio** — mute si dist > radio_range_m | ✅ | override con `--radio-range` |
-| **DSP de radio** — bandpass + soft-clip + ruido | ✅ | audible, varía con distancia |
+| **DSP de radio** — biquad bandpass + AGC + bitcrusher + ruido | ✅ | audible, varía con distancia |
+| **Interferencia por distancia** — crackle y dropouts progresivos | ✅ | `signal_quality` 1.0→0.0, dropout > 50% rango |
 | **Muerte** — `alive=false` bloquea todo PTT | ✅ | log: `dead — muted` |
 | **Inconsciente** — `conscious=false` bloquea PTT | ✅ | log: `unconscious — muted` |
 | **Radio LR** — frecuencia, canal y rango independientes del SR | ✅ | rango default 20 km |
 | **Vehículo** — PTT local bloqueado, radio sigue funcionando | ✅ | log: `in vehicle, no radio PTT — muted` |
 | Mute correcto (zerear buffer, return true) | ✅ | fix API Mumble |
-| **Tests de integración en CI** — 56 tests automatizados | ✅ | unit + integración bridge (subprocess UDP) |
+| **Tests de integración en CI** — 60 tests automatizados | ✅ | unit + integración bridge (subprocess UDP) |
 | Extension DLL para Arma 3 | ⚠️ | Solo Windows (cross-compile pendiente) |
 
 ### 🗺️ Fases de desarrollo
@@ -106,7 +107,7 @@
 |---|---|---|
 | **1** | Voz por proximidad (posición 3D, atenuación por distancia) | ✅ |
 | **2** | Radio simple (frecuencia, canal, rango, PTT, efecto DSP, muerte) | ✅ |
-| **3** | Lógica tipo TFAR (SR/LR, potencia, interferencia, vehículos) | 🔜 |
+| **3** | Lógica tipo TFAR (SR/LR, potencia, interferencia, vehículos) | ✅ |
 
 ---
 
@@ -351,6 +352,32 @@ cargo run --release -p rmtfar-test-client -- \
   --id "Jugador1" --freq-lr 30.0 --ptt-radio-lr --pos 25000,0,0
 ```
 
+#### 📶 Prueba de interferencia por distancia (DSP progresivo)
+
+```bash
+# Jugador2 escuchando en 43.0, rango 500m
+cargo run --release -p rmtfar-test-client -- --id "Jugador2" --freq 43.0
+
+# Señal fuerte (20% del rango) — q=0.80 — sin ruido, voz clara
+cargo run --release -p rmtfar-test-client -- \
+  --id "Jugador1" --freq 43.0 --ptt-radio --pos 100,0,0 --radio-range 500
+
+# Señal media (60% del rango) — q=0.40 — ruido audible, sin dropouts
+cargo run --release -p rmtfar-test-client -- \
+  --id "Jugador1" --freq 43.0 --ptt-radio --pos 300,0,0 --radio-range 500
+
+# Señal débil (90% del rango) — q=0.10 — estática fuerte + crackle/dropouts
+cargo run --release -p rmtfar-test-client -- \
+  --id "Jugador1" --freq 43.0 --ptt-radio --pos 450,0,0 --radio-range 500
+```
+
+En los logs verás el valor de `signal_quality` disminuir a medida que la distancia aumenta:
+```
+DEBUG rmtfar_plugin: radio — applying DSP uid=Jugador1 dist=100.0 signal_quality=0.80
+DEBUG rmtfar_plugin: radio — applying DSP uid=Jugador1 dist=300.0 signal_quality=0.40
+DEBUG rmtfar_plugin: radio — applying DSP uid=Jugador1 dist=450.0 signal_quality=0.10
+```
+
 #### 👂 Prueba de proximidad local
 
 ```bash
@@ -373,7 +400,8 @@ Los logs aparecen en el terminal donde corrés Mumble:
 
 ```
 INFO  RMTFAR: registering identity user_id=37 name=Jugador1
-DEBUG rmtfar_plugin: radio — applying DSP uid=Jugador1 dist=200.0
+DEBUG rmtfar_plugin: radio — applying DSP uid=Jugador1 dist=200.0 signal_quality=0.60
+DEBUG rmtfar_plugin: radio — applying DSP uid=Jugador1 dist=430.0 signal_quality=0.14
 DEBUG rmtfar_plugin: out of radio range — muted uid=Jugador1 dist=800.0
 DEBUG rmtfar_plugin: radio freq mismatch — muted uid=Jugador1 sender_freq=50.0 local_freq=43.0
 DEBUG rmtfar_plugin: radio channel mismatch — muted uid=Jugador1 sender_ch=2 local_ch=1
@@ -394,16 +422,42 @@ cargo fmt --all   # Formateo automático
 cargo test --workspace
 ```
 
-El CI corre en cada push: formato, clippy, **56 tests automatizados** (unitarios + integración) y build del plugin/bridge para Linux.
+El CI corre en cada push: formato, clippy, **60 tests automatizados** (unitarios + integración) y build del plugin/bridge para Linux.
 
 ### 🧪 Cobertura de tests
 
 | Crate | Tests | Qué cubren |
 |---|---|---|
-| `rmtfar-protocol` | 19 | Serialización, campos de PlayerSummary, vehicle, tuned_freq, LR, muerte/inconsciente |
-| `rmtfar-plugin` | 18 | `process_audio`: freq, canal, rango, muerte, inconsciente, vehículo, proximidad, atenuación |
+| `rmtfar-protocol` | 19 | Serialización, campos de `PlayerSummary`, vehicle, tuned_freq, LR, muerte/inconsciente |
+| `rmtfar-plugin` | 22 | `process_audio`: freq, canal, rango, muerte, inconsciente, vehículo, proximidad, atenuación, DSP |
 | `rmtfar-bridge` (unit) | 14 | Matching SR/LR, rango, muerte, canal, signal quality, vehicle |
 | `rmtfar-bridge` (integración) | 5 | Bridge subprocess real + UDP: SR, multi-jugador, muerte, vehículo, LR |
+
+### 🔊 Pipeline DSP de radio
+
+El efecto de radio se aplica en `crates/rmtfar-plugin/src/dsp.rs`. Los parámetros son ajustables:
+
+| Paso | Parámetro | Default | Efecto de modificarlo |
+|---|---|---|---|
+| High-pass biquad | `cutoff_hz = 300.0` | 300 Hz | Subir a 450 Hz → más "fino" y telefónico |
+| Low-pass biquad | `cutoff_hz = 3_400.0` | 3 400 Hz | Bajar a 2 500 Hz → más apagado / lejano |
+| AGC compressor | `threshold = 0.35, ratio = 4.0` | 4:1 | Ratio mayor → más comprimido / uniforme |
+| Bitcrusher | `target_rate = 8_000` | 8 kHz | 12 000 Hz = menos artefactos; 6 000 Hz = más degradado |
+| Soft-clip | `gain = 2.5` | 2.5 | Subir → más saturación / grit |
+| Noise floor | `0.018 + (1-q)² × 0.25` | — | Subir el `0.018` → siempre hay estática de fondo |
+| Dropout | activado cuando `q < 0.5` | — | Empieza al 50% del rango, máximo al límite |
+
+#### Modelo `signal_quality`
+
+```
+signal_quality = 1.0 - (dist / range_m)   ∈ [0.0, 1.0]
+```
+
+| Calidad | Distancia | Comportamiento |
+|---|---|---|
+| 1.0 → 0.5 | 0–50% del rango | Señal clara, ruido mínimo |
+| 0.5 → 0.1 | 50–90% del rango | Ruido creciente, empieza crackle |
+| < 0.1 | > 90% del rango | Estática fuerte, dropouts frecuentes |
 
 Una [auditoría de dependencias](.github/workflows/dep-audit.yml) se ejecuta automáticamente cada **1 de diciembre**.
 
