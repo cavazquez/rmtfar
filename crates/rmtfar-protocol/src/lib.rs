@@ -151,9 +151,19 @@ pub struct PlayerSummary {
     /// Tuned SR frequency regardless of PTT — used to check listener compatibility.
     #[serde(default)]
     pub tuned_sr_freq: String,
+    /// Tuned SR channel regardless of PTT.
+    #[serde(default = "default_channel")]
+    pub tuned_sr_channel: u8,
     /// Tuned LR frequency regardless of PTT — used to check listener compatibility.
     #[serde(default)]
     pub tuned_lr_freq: String,
+    /// Tuned LR channel regardless of PTT.
+    #[serde(default = "default_channel")]
+    pub tuned_lr_channel: u8,
+}
+
+fn default_channel() -> u8 {
+    1
 }
 
 impl PlayerSummary {
@@ -181,17 +191,17 @@ impl PlayerSummary {
                 (false, String::new(), String::new(), 0, 0.0)
             };
 
-        let tuned_sr_freq = state
+        let (tuned_sr_freq, tuned_sr_channel) = state
             .radio_sr
             .as_ref()
             .filter(|r| r.enabled)
-            .map(|r| r.freq.clone())
+            .map(|r| (r.freq.clone(), r.channel))
             .unwrap_or_default();
-        let tuned_lr_freq = state
+        let (tuned_lr_freq, tuned_lr_channel) = state
             .radio_lr
             .as_ref()
             .filter(|r| r.enabled)
-            .map(|r| r.freq.clone())
+            .map(|r| (r.freq.clone(), r.channel))
             .unwrap_or_default();
 
         Self {
@@ -207,7 +217,9 @@ impl PlayerSummary {
             radio_channel,
             radio_range_m,
             tuned_sr_freq,
+            tuned_sr_channel,
             tuned_lr_freq,
+            tuned_lr_channel,
         }
     }
 }

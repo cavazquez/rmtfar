@@ -105,13 +105,15 @@ impl Plugin {
 
         let radio = self.state.last_message();
 
-        let (local_pos, local_alive, local_tuned_sr, local_tuned_lr) =
+        let (local_pos, local_alive, local_tuned_sr, local_tuned_sr_ch, local_tuned_lr, local_tuned_lr_ch) =
             match radio.as_ref().and_then(|m| m.local()) {
                 Some(l) => (
                     l.pos,
                     l.alive && l.conscious,
                     l.tuned_sr_freq.clone(),
+                    l.tuned_sr_channel,
                     l.tuned_lr_freq.clone(),
+                    l.tuned_lr_channel,
                 ),
                 None => return true, // no state yet, pass through
             };
@@ -136,13 +138,12 @@ impl Plugin {
         let dist = distance(&local_pos, &sender.pos);
 
         if sender.transmitting_radio {
-            // Match sender's transmission freq against the local player's tuned freq for that
-            // radio type. The local player does not need to have PTT pressed — just the right
-            // radio equipped and tuned.
-            let local_freq = if sender.radio_type == "lr" {
-                &local_tuned_lr
+            // Match sender's transmission freq+channel against the local player's tuned
+            // freq+channel for that radio type.
+            let (local_freq, local_channel) = if sender.radio_type == "lr" {
+                (&local_tuned_lr, local_tuned_lr_ch)
             } else {
-                &local_tuned_sr
+                (&local_tuned_sr, local_tuned_sr_ch)
             };
             if sender.radio_freq.is_empty() || sender.radio_freq != *local_freq {
                 tracing::debug!(
@@ -150,6 +151,15 @@ impl Plugin {
                     sender_freq = %sender.radio_freq,
                     local_freq = %local_freq,
                     "radio freq mismatch — muted"
+                );
+                return false;
+            }
+            if sender.radio_channel != local_channel {
+                tracing::debug!(
+                    uid = %sender.steam_id,
+                    sender_ch = sender.radio_channel,
+                    local_ch = local_channel,
+                    "radio channel mismatch — muted"
                 );
                 return false;
             }

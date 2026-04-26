@@ -78,7 +78,7 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
         ptt_radio_lr: false,
         radio_sr: Some(RadioConfig {
             freq: cfg.freq.clone(),
-            channel: 1,
+            channel: cfg.channel,
             volume: 1.0,
             enabled: true,
             range_m: cfg.radio_range_m,
@@ -97,6 +97,7 @@ struct Config {
     ptt_local: bool,
     ptt_radio_sr: bool,
     freq: String,
+    channel: u8,
     radio_range_m: Option<f32>,
 }
 
@@ -148,6 +149,7 @@ fn parse_args(args: &[String]) -> Result<Config> {
     let mut ptt_local = false;
     let mut ptt_radio_sr = false;
     let mut freq = "152.000".to_string();
+    let mut channel: u8 = 1;
     let mut radio_range_m: Option<f32> = None;
 
     let mut i = 1usize;
@@ -186,6 +188,11 @@ fn parse_args(args: &[String]) -> Result<Config> {
             "--freq" => {
                 freq = next_arg(args, &mut i)?;
             }
+            "--channel" => {
+                channel = next_arg(args, &mut i)?
+                    .parse()
+                    .context("--channel expects a channel number (1-8)")?;
+            }
             "--radio-range" => {
                 radio_range_m = Some(
                     next_arg(args, &mut i)?
@@ -211,6 +218,7 @@ fn parse_args(args: &[String]) -> Result<Config> {
         ptt_local,
         ptt_radio_sr,
         freq,
+        channel,
         radio_range_m,
     })
 }
@@ -237,6 +245,7 @@ fn print_help() {
     println!("  --ptt-local           Activate local PTT (direct voice)");
     println!("  --ptt-radio           Activate SR radio PTT");
     println!("  --freq <freq>         SR radio frequency     (default: 152.000)");
+    println!("  --channel <n>         SR radio channel 1-8              (default: 1)");
     println!("  --radio-range <m>     Override SR radio range in metres  (default: 5000)");
     println!("  --help                Print this help\n");
     println!("EXAMPLE - test proximity audio with two terminals:");
