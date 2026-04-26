@@ -49,14 +49,24 @@ impl Plugin {
     }
 
     pub(crate) fn start(&mut self) -> bool {
+        // Inicializar tracing hacia stderr para que los logs aparezcan en
+        // journalctl: journalctl --user -f | grep RMTFAR
+        let _ = tracing_subscriber::fmt()
+            .with_env_filter(
+                std::env::var("RMTFAR_LOG").unwrap_or_else(|_| "rmtfar_plugin=debug".into()),
+            )
+            .with_writer(std::io::stderr)
+            .try_init();
+
         match UdpSocket::bind(format!("127.0.0.1:{PLUGIN_RECV_PORT}")) {
             Ok(sock) => {
                 sock.set_nonblocking(true).ok();
                 self.socket = Some(sock);
+                tracing::info!("RMTFAR plugin started, listening on UDP :{PLUGIN_RECV_PORT}");
                 true
             }
             Err(e) => {
-                eprintln!("RMTFAR plugin: failed to bind UDP :{PLUGIN_RECV_PORT}: {e}");
+                tracing::error!("RMTFAR plugin: failed to bind UDP :{PLUGIN_RECV_PORT}: {e}");
                 false
             }
         }
@@ -111,6 +121,7 @@ impl Plugin {
         });
 
         let Some(sender) = sender else {
+            tracing::debug!(mumble_id, "unknown user — pass through");
             return true; // unknown user, pass through
         };
 
@@ -118,21 +129,32 @@ impl Plugin {
 
         if sender.transmitting_radio {
             if sender.radio_freq.is_empty() || sender.radio_freq != local_freq {
+                tracing::debug!(
+                    uid = %sender.steam_id,
+                    sender_freq = %sender.radio_freq,
+                    local_freq = %local_freq,
+                    "radio freq mismatch — muted"
+                );
                 return false;
             }
             if dist > sender.radio_range_m {
+                tracing::debug!(uid = %sender.steam_id, dist, "out of radio range — muted");
                 return false;
             }
+            tracing::debug!(uid = %sender.steam_id, dist, "radio — applying DSP");
             dsp::apply_radio_effect(samples, sample_rate, dist, sender.radio_range_m);
             true
         } else if sender.transmitting_local {
             if dist > LOCAL_VOICE_RANGE_M {
+                tracing::debug!(uid = %sender.steam_id, dist, "out of local range — muted");
                 return false;
             }
             let volume = 1.0 - (dist / LOCAL_VOICE_RANGE_M).clamp(0.0, 1.0);
+            tracing::debug!(uid = %sender.steam_id, dist, volume, "local voice");
             audio::apply_volume(samples, volume);
             true
         } else {
+            tracing::debug!(uid = %sender.steam_id, "not transmitting — muted");
             false
         }
     }
