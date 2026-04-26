@@ -1,15 +1,18 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0
-# build-linux.sh — Compila todo el workspace para Linux e instala el plugin en Mumble.
+# build-linux.sh — Compila binarios Linux e instala el plugin en Mumble.
 #
-# Qué hace:
-#   1. Compila rmtfar-plugin, rmtfar-bridge y rmtfar-test-client
-#   2. Instala librmtfar_plugin.so en los paths que Mumble busca
-#   3. Genera rmtfar_plugin.mumble_plugin (instalable desde la UI de Mumble)
+# Qué produce:
+#   debug   → target/debug/             (ignorado por git)
+#   release → dist/linux/mumble/        (ignorado por git)
+#             + instala en Mumble local
+#
+# Nota: Arma 3 no tiene binario nativo Linux. Si corrés Arma 3 via Proton/Steam Play,
+#       usá los binarios de dist/windows-x64/arma3/ generados por build-windows.sh --release.
 #
 # Uso:
-#   ./scripts/build-linux.sh           # release (recomendado)
-#   ./scripts/build-linux.sh --debug   # debug (más logs de tracing)
+#   ./scripts/build-linux.sh           # debug
+#   ./scripts/build-linux.sh --release # release (genera dist/linux/ e instala en Mumble)
 
 set -euo pipefail
 
@@ -17,15 +20,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 cd "$REPO_ROOT"
 
-# ── Opciones ──────────────────────────────────────────────────────────────────
-PROFILE="release"
-CARGO_FLAGS=(--release)
-if [[ "${1:-}" == "--debug" ]]; then
-    PROFILE="debug"
-    CARGO_FLAGS=()
-fi
+RELEASE=0
+for arg in "$@"; do
+    case "$arg" in
+        --release) RELEASE=1 ;;
+        *) echo "Argumento desconocido: $arg"; exit 1 ;;
+    esac
+done
 
-# ── 1. Compilar ───────────────────────────────────────────────────────────────
+PROFILE="$( [[ $RELEASE -eq 1 ]] && echo "release" || echo "debug" )"
+CARGO_FLAGS=( $( [[ $RELEASE -eq 1 ]] && echo "--release" || echo "" ) )
+
+DIST_MUMBLE="dist/linux/mumble"
+
 echo "=== Build Linux ($PROFILE) ==="
 cargo build "${CARGO_FLAGS[@]}" \
     -p rmtfar-plugin \
@@ -47,31 +54,33 @@ ls -lh \
     "target/$PROFILE/rmtfar-test-client" \
     2>/dev/null || true
 
-# ── 2. Instalar en Mumble ─────────────────────────────────────────────────────
-echo ""
-echo "=== Instalando plugin en Mumble ==="
+if [[ $RELEASE -eq 1 ]]; then
+    # ── Copiar a dist/ ─────────────────────────────────────────────────────────
+    mkdir -p "$DIST_MUMBLE"
+    cp "$SO" "$DIST_MUMBLE/librmtfar_plugin.so"
 
-# Path real leído desde mumble_settings.json (Mumble 1.5+)
-TARGET_REAL="$HOME/.local/share/Mumble/Mumble/Plugins/librmtfar_plugin.so"
-mkdir -p "$(dirname "$TARGET_REAL")"
-cp "$SO" "$TARGET_REAL"
-echo "  $TARGET_REAL"
+    # ── Instalar en Mumble local ───────────────────────────────────────────────
+    echo ""
+    echo "=== Instalando plugin en Mumble ==="
 
-# Path estándar XDG
-TARGET_XDG="$HOME/.local/share/mumble/Plugins/rmtfar.mumble_plugin"
-mkdir -p "$(dirname "$TARGET_XDG")"
-cp "$SO" "$TARGET_XDG"
-echo "  $TARGET_XDG"
+    TARGET_REAL="$HOME/.local/share/Mumble/Mumble/Plugins/librmtfar_plugin.so"
+    mkdir -p "$(dirname "$TARGET_REAL")"
+    cp "$SO" "$TARGET_REAL"
+    echo "  $TARGET_REAL"
 
-# ── 3. Generar .mumble_plugin (ZIP con manifest.xml) ──────────────────────────
-# Instalable desde Mumble → Configuración → Complementos → "Instalar un plugin..."
-echo ""
-echo "=== Generando .mumble_plugin ==="
+    TARGET_XDG="$HOME/.local/share/mumble/Plugins/rmtfar.mumble_plugin"
+    mkdir -p "$(dirname "$TARGET_XDG")"
+    cp "$SO" "$TARGET_XDG"
+    echo "  $TARGET_XDG"
 
-TMPDIR_PKG="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR_PKG"' EXIT
+    # ── Generar .mumble_plugin ─────────────────────────────────────────────────
+    echo ""
+    echo "=== Generando .mumble_plugin ==="
 
-cat > "$TMPDIR_PKG/manifest.xml" <<'XML'
+    TMPDIR_PKG="$(mktemp -d)"
+    trap 'rm -rf "$TMPDIR_PKG"' EXIT
+
+    cat > "$TMPDIR_PKG/manifest.xml" <<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
 <bundle version="1.0.0">
   <assets>
@@ -82,15 +91,30 @@ cat > "$TMPDIR_PKG/manifest.xml" <<'XML'
 </bundle>
 XML
 
-cp "$SO" "$TMPDIR_PKG/librmtfar_plugin.so"
+    cp "$SO" "$TMPDIR_PKG/librmtfar_plugin.so"
 
-PKG="target/$PROFILE/rmtfar_plugin.mumble_plugin"
-rm -f "$PKG"   # puede existir como .so raw si se usó install-plugin.sh antes
-(cd "$TMPDIR_PKG" && zip -j "$REPO_ROOT/$PKG" manifest.xml librmtfar_plugin.so)
+    PKG="target/$PROFILE/rmtfar_plugin.mumble_plugin"
+    rm -f "$PKG"
+    (cd "$TMPDIR_PKG" && zip -j "$REPO_ROOT/$PKG" manifest.xml librmtfar_plugin.so)
 
-echo "  $(realpath "$PKG")"
-echo ""
-echo "Para instalar desde la UI:"
-echo "  Mumble → Configuración → Complementos → 'Instalar un plugin...' → seleccionar el .mumble_plugin"
-echo ""
-echo "Reiniciá Mumble para que tome el nuevo binario."
+    echo "  $(realpath "$PKG")"
+    echo ""
+    echo "Para instalar desde la UI:"
+    echo "  Mumble → Configuración → Complementos → 'Instalar un plugin...' → seleccionar el .mumble_plugin"
+
+    # ── Resumen ────────────────────────────────────────────────────────────────
+    echo ""
+    echo "=== Build Linux completado ==="
+    echo ""
+    echo "  Linux / Mumble  → $DIST_MUMBLE/"
+    ls -lh "$DIST_MUMBLE/librmtfar_plugin.so" | awk '{print "    "$NF, $5}'
+    echo ""
+    echo "  Nota: Arma 3 en Linux (Proton/Steam Play) usa los binarios Windows."
+    echo "        Generarlos con: ./scripts/build-windows.sh --release"
+    echo ""
+    echo "Reiniciá Mumble para que tome el nuevo binario."
+else
+    echo ""
+    echo "=== Build Linux completado (debug) ==="
+    echo "Binarios de desarrollo en target/debug/."
+fi

@@ -1,5 +1,6 @@
 /target/
 /dist/
+/arma-mod/
 **/*.dll.bak
 *.log
 *.pbo
