@@ -28,19 +28,20 @@ jobs:
         with:
           targets: x86_64-pc-windows-msvc
 
-      - name: Cache Cargo
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: release-windows-msvc
+
+      - name: Cache cargo-xwin binary
         uses: actions/cache@v4
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target/
-          key: ${{ runner.os }}-cargo-release-msvc-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-release-msvc-
+          path: ~/.cargo/bin/cargo-xwin
+          key: xwin-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: xwin-${{ runner.os }}-
 
-      - name: Install cargo-xwin
-        run: cargo install cargo-xwin --locked
+      - name: Install cargo-xwin (if not cached)
+        run: command -v cargo-xwin || cargo install cargo-xwin --locked
 
       - name: Build extension DLL (Arma 3)
         run: cargo xwin build --release -p rmtfar-extension --target x86_64-pc-windows-msvc
@@ -77,16 +78,10 @@ jobs:
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Cargo
-        uses: actions/cache@v4
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target/
-          key: ${{ runner.os }}-cargo-release-linux-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-release-linux-
+          shared-key: release-linux
 
       - name: Build plugin (.so)
         run: cargo build --release -p rmtfar-plugin
