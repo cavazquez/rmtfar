@@ -41,8 +41,28 @@ Los atajos se reconfiguran en *Arma 3 → Configuración → Controles → Mods 
 | **RPT de Arma** (`*.rpt`) | `RMTFAR DEBUG: ghost send ...` ~1/s por ghost mientras DEBUG está ON. |
 | **Plugin** | `tracing::info!` ~cada 0,9 s con resumen de `radio_state` (no imprime los 20 Hz completos). |
 
+## Dónde cambiar los atajos en Arma 3
+
+Los keybinds de CBA **no** suelen aparecer mezclados con “Movimiento” o “Armas”. En el menú de controles:
+
+1. **Opciones → Controles** (o **Configuración → Controles**).
+2. En la **columna izquierda** de categorías, bajá hasta encontrar la entrada **RMTFAR** (junto a otras categorías de addons).
+3. Si no la ves: probá el **filtro / buscador** de la pantalla de controles (según versión de CBA) o reiniciá la misión tras cargar el mod; la categoría se registra al inicio con `CBA_fnc_addKeybind`.
+
+Atajos por defecto: **Ctrl+Shift+F7** … **F10** (ver tabla arriba).
+
 ## Detalles técnicos
 
 - Los ghosts **no** son unidades en el mundo; solo entradas en `RMTFAR_ghosts` enviadas en el loop junto con `allPlayers`.
 - La extensión Rust acumula por `player_id`; el comando `forget` elimina un id del store y reenvía UDP (útil al apagar DEBUG).
 - Para audio audible hace falta otra sesión Mumble con el **mismo** `player_id` que el ghost (poco habitual). Este modo prioriza **validar UDP y logs**; el audio end-to-end sigue siendo más simple con dos clientes Mumble + test-client en Linux.
+
+## Problemas conocidos
+
+### Sin sonido / audio raro en el juego
+
+En el mismo arranque el RPT muestra a veces **Task Force Arrowhead Radio (TFAR)** cargando `task_force_radio_pipe_x64.dll` **junto** con RMTFAR. TFAR intercepta la ruta de voz del juego hacia TeamSpeak; **no es compatible** con usar RMTFAR + Mumble como reemplazo. **Quitá el mod TFAR** de la lista cuando probés RMTFAR, reiniciá Arma y revisá **Opciones → Sonido** (volumen general y efectos no en cero).
+
+### Línea `rmtfar.pbo - unknown` en el RPT
+
+Suele indicar PBO **sin firma** de BI (típico de `armake2` en local). No impide que carguen los scripts si el addon está bien; si el mod fallara por PBO, no verías `RMTFAR: Keybinds registered` en el RPT.
