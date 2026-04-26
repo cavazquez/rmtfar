@@ -12,3 +12,15 @@ class CfgPatches {
         version = "0.1.0";
     };
 };
+
+class Extended_PreInit_EventHandlers {
+    class rmtfar {
+        init = "call compile preprocessFileLineNumbers '\rmtfar\addons\rmtfar\XEH_preInit.sqf'";
+    };
+};
+
+class Extended_PostInit_EventHandlers {
+    class rmtfar {
+        init = "call compile preprocessFileLineNumbers '\rmtfar\addons\rmtfar\XEH_postInit.sqf'";
+    };
+};
