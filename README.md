@@ -269,7 +269,13 @@ TARGET=windows RELEASE=1 ./scripts/build-plugin.sh  # → arma-mod/@rmtfar/rmtfa
 1. Copiar toda la carpeta `@rmtfar/` a una ubicación accesible (ej. `C:\Users\...\Downloads\rmtfar\@rmtfar\`)
 2. Copiar `rmtfar_plugin.dll` a `%APPDATA%\Mumble\Plugins\`
 3. En el **Launcher de Arma 3** → **MODS** → **Add local mod** → seleccionar la carpeta `@rmtfar`
-4. Mumble detecta el plugin automáticamente al iniciar. Verificar en *Mumble → Configuración → Plugins*
+4. **Desactivar BattlEye** en el Launcher (la DLL no está en la whitelist de BE y será bloqueada)
+5. Mumble detecta el plugin automáticamente al iniciar. Verificar en *Mumble → Configuración → Plugins*
+
+> ⚠️ **BattlEye**: Si BattlEye está habilitado, bloqueará la carga de `rmtfar_x64.dll`
+> con error "Recursos insuficientes en el sistema" (error 1450). Esto ocurre porque
+> BE intercepta `LoadLibrary` y rechaza DLLs no registradas. Para desarrollo y testing,
+> lanzar Arma 3 sin BattlEye. Para servidores con BE, la DLL necesitaría ser whitelisteada.
 
 ### Verificar exports
 
