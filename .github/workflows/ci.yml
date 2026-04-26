@@ -248,6 +248,53 @@ jobs:
           path: target/x86_64-pc-windows-gnu/release/rmtfar-bridge.exe
           retention-days: 30
 
+  coverage:
+    name: Code coverage (tarpaulin)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-tarpaulin-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-tarpaulin-
+
+      - name: Install cargo-tarpaulin
+        run: cargo install cargo-tarpaulin --locked
+
+      - name: Run coverage
+        # Exclude cdylib crates (rmtfar-extension, rmtfar-plugin) — tarpaulin
+        # can't instrument cdylib targets reliably. We still cover the shared
+        # protocol crate, bridge, and test-client.
+        run: |
+          cargo tarpaulin \
+            --workspace \
+            --exclude rmtfar-extension \
+            --exclude rmtfar-plugin \
+            --timeout 120 \
+            --out Xml \
+            --output-dir coverage/
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-report
+          path: coverage/cobertura.xml
+          retention-days: 14
+
   build-bridge-linux:
     name: Build bridge (Linux)
     runs-on: ubuntu-latest

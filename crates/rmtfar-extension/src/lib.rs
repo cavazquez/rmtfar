@@ -102,9 +102,7 @@ fn parse_optional_radio_range_m(raw: &str, label: &str) -> Result<Option<f32>, S
     if raw.is_empty() || raw == "0" {
         return Ok(None);
     }
-    let v: f32 = raw
-        .parse()
-        .map_err(|e| format!("v1: {label}: {e}"))?;
+    let v: f32 = raw.parse().map_err(|e| format!("v1: {label}: {e}"))?;
     if v <= 0.0 {
         Ok(None)
     } else {
@@ -113,6 +111,7 @@ fn parse_optional_radio_range_m(raw: &str, label: &str) -> Result<Option<f32>, S
 }
 
 #[allow(clippy::similar_names)] // Protocol field names are intentionally parallel (sr/lr).
+#[allow(clippy::many_single_char_names)] // x, y, z are coordinate names; s and n are idiomatic.
 fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
     let fields = split_escaped_pipe(s);
     if fields.is_empty() || fields[0] != "v1" {
@@ -389,13 +388,20 @@ unsafe fn write_output(output: *mut c_char, size: c_int, data: &str) {
 
 #[cfg(test)]
 mod v1_tests {
-    use super::parse_player_state_v1;
+    use super::{
+        normalize_v1_payload, parse_player_state, parse_player_state_v1, split_escaped_pipe,
+        unescape_pipe_field,
+    };
+
+    // ── parse_player_state_v1 ────────────────────────────────────────────────
 
     #[test]
     fn v1_18_fields_defaults_los() {
         let s = "v1|76561198000000000|srv|1000|0|0|0|0|1|1||0|0|0|152.000|1||1";
         let p = parse_player_state_v1(s).unwrap();
         assert!((p.radio_los_quality - 1.0).abs() < f32::EPSILON);
+        assert!(p.radio_sr.is_some());
+        assert!(p.radio_lr.is_none());
     }
 
     #[test]
@@ -412,5 +418,138 @@ mod v1_tests {
         let p = parse_player_state_v1(s).unwrap();
         assert!((p.radio_sr.as_ref().unwrap().range_m.unwrap() - 3000.0).abs() < 1e-3);
         assert!((p.radio_lr.as_ref().unwrap().range_m.unwrap() - 12000.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn v1_alive_conscious_flags() {
+        let alive_dead = "v1|id|srv|0|0|0|0|0|0|1||0|0|0|43.0|1||1";
+        let p = parse_player_state_v1(alive_dead).unwrap();
+        assert!(!p.alive);
+        assert!(p.conscious);
+
+        let alive_unconscious = "v1|id|srv|0|0|0|0|0|1|0||0|0|0|43.0|1||1";
+        let p2 = parse_player_state_v1(alive_unconscious).unwrap();
+        assert!(p2.alive);
+        assert!(!p2.conscious);
+    }
+
+    #[test]
+    fn v1_vehicle_field() {
+        let s = "v1|id|srv|0|0|0|0|0|1|1|B_MRAP_01_F|0|0|0|43.0|1||1";
+        let p = parse_player_state_v1(s).unwrap();
+        assert_eq!(p.vehicle, "B_MRAP_01_F");
+    }
+
+    #[test]
+    fn v1_ptt_flags() {
+        let s = "v1|id|srv|0|0|0|0|0|1|1||1|1|0|43.0|1||1";
+        let p = parse_player_state_v1(s).unwrap();
+        assert!(p.ptt_local);
+        assert!(p.ptt_radio_sr);
+        assert!(!p.ptt_radio_lr);
+    }
+
+    #[test]
+    fn v1_lr_radio_present() {
+        let s = "v1|id|srv|0|0|0|0|0|1|1||0|0|1|43.0|1|30.0|2|1";
+        let p = parse_player_state_v1(s).unwrap();
+        let lr = p.radio_lr.as_ref().unwrap();
+        assert_eq!(lr.freq, "30.0");
+        assert_eq!(lr.channel, 2);
+    }
+
+    #[test]
+    fn v1_zero_range_treated_as_none() {
+        let s = "v1|id|srv|0|0|0|0|0|1|1||0|0|0|43.0|1||1|1|0|0";
+        let p = parse_player_state_v1(s).unwrap();
+        assert!(p.radio_sr.as_ref().unwrap().range_m.is_none());
+    }
+
+    #[test]
+    fn v1_bad_field_count_errors() {
+        let s = "v1|only|three";
+        assert!(parse_player_state_v1(s).is_err());
+    }
+
+    #[test]
+    fn v1_bad_prefix_errors() {
+        let s = "v2|id|srv|0|0|0|0|0|1|1||0|0|0|43.0|1||1";
+        assert!(parse_player_state_v1(s).is_err());
+    }
+
+    // ── normalize_v1_payload ────────────────────────────────────────────────
+
+    #[test]
+    fn normalize_bare_v1() {
+        let result = normalize_v1_payload("v1|a|b").unwrap();
+        assert_eq!(result, "v1|a|b");
+    }
+
+    #[test]
+    fn normalize_json_string_wrapper() {
+        let result = normalize_v1_payload(r#""v1|a|b""#).unwrap();
+        assert_eq!(result, "v1|a|b");
+    }
+
+    #[test]
+    fn normalize_json_array_wrapper() {
+        let result = normalize_v1_payload(r#"["v1|a|b"]"#).unwrap();
+        assert_eq!(result, "v1|a|b");
+    }
+
+    #[test]
+    fn normalize_unknown_format_errors() {
+        assert!(normalize_v1_payload("{}").is_err());
+        assert!(normalize_v1_payload("not_v1|x").is_err());
+    }
+
+    // ── parse_player_state (bytes entry point) ─────────────────────────────
+
+    #[test]
+    fn parse_bytes_accepts_bare_v1() {
+        let s = "v1|id|srv|0|0|0|0|0|1|1||0|0|0|43.0|1||1";
+        assert!(parse_player_state(s.as_bytes()).is_ok());
+    }
+
+    #[test]
+    fn parse_bytes_rejects_empty() {
+        assert!(parse_player_state(b"").is_err());
+    }
+
+    // ── split_escaped_pipe ──────────────────────────────────────────────────
+
+    #[test]
+    fn split_basic() {
+        let parts = split_escaped_pipe("a|b|c");
+        assert_eq!(parts, vec!["a", "b", "c"]);
+    }
+
+    #[test]
+    fn split_empty_field() {
+        let parts = split_escaped_pipe("a||c");
+        assert_eq!(parts, vec!["a", "", "c"]);
+    }
+
+    #[test]
+    fn split_escaped_pipe_char() {
+        let parts = split_escaped_pipe(r"a\|b|c");
+        assert_eq!(parts, vec!["a|b", "c"]);
+    }
+
+    // ── unescape_pipe_field ─────────────────────────────────────────────────
+
+    #[test]
+    fn unescape_no_escapes() {
+        assert_eq!(unescape_pipe_field("hello"), "hello");
+    }
+
+    #[test]
+    fn unescape_escaped_pipe() {
+        assert_eq!(unescape_pipe_field(r"a\|b"), "a|b");
+    }
+
+    #[test]
+    fn unescape_escaped_backslash() {
+        assert_eq!(unescape_pipe_field(r"a\\b"), r"a\b");
     }
 }

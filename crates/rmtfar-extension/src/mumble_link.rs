@@ -91,8 +91,17 @@ unsafe impl Sync for Inner {}
 impl Inner {
     fn open() -> Result<Self, &'static str> {
         const NAME: &[u16] = &[
-            b'M' as u16, b'u' as u16, b'm' as u16, b'b' as u16, b'l' as u16, b'e' as u16,
-            b'L' as u16, b'i' as u16, b'n' as u16, b'k' as u16, 0,
+            b'M' as u16,
+            b'u' as u16,
+            b'm' as u16,
+            b'b' as u16,
+            b'l' as u16,
+            b'e' as u16,
+            b'L' as u16,
+            b'i' as u16,
+            b'n' as u16,
+            b'k' as u16,
+            0,
         ];
         let handle =
             unsafe { win32::OpenFileMappingW(win32::FILE_MAP_ALL_ACCESS, 0, NAME.as_ptr()) };

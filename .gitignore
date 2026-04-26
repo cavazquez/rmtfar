@@ -1,7 +1,6 @@
 /target/
 /dist/
 **/*.dll.bak
-Cargo.lock
 *.log
 *.pbo
 *.zip

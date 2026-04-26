@@ -23,7 +23,7 @@
 | 🎙️ **Mumble 1.5+** | Transporte de voz (cliente, verificado en 1.5.735) |
 | 🖥️ **Murmur** | Servidor de voz |
 | 📦 **serde / serde_json** | Serialización del protocolo |
-| 🔊 **dasp** | DSP: biquad bandpass, AGC, bitcrusher y ruido de radio |
+| 🔊 **DSP propio** | Biquad bandpass, AGC, bitcrusher y ruido de radio (implementado en `dsp.rs`) |
 | 🧵 **UDP** | Comunicación local entre componentes |
 | 🧠 **MumbleLink** | Shared memory para audio posicional |
 | ⚙️ **C FFI** | Bindings al API de plugin de Mumble |
@@ -180,7 +180,8 @@ rmtfar/
 ├── 🔧 install-plugin.sh           # Compila e instala el plugin en todos los paths de Mumble
 ├── 📂 .github/
 │   └── workflows/
-│       ├── ci.yml                 # CI: fmt + clippy + 56 tests + build plugin/bridge
+│       ├── ci.yml                 # CI: fmt + clippy + tests + build (GNU/mingw)
+│       ├── release.yml            # Release: tag v* → build MSVC → GitHub Release
 │       └── dep-audit.yml          # Auditoría anual de dependencias (diciembre)
 ├── 📦 crates/
 │   ├── rmtfar-protocol/           # Tipos compartidos (PlayerState, RadioStateMessage…)
@@ -209,7 +210,7 @@ rmtfar/
 |---|---|
 | `serde` + `serde_json` | Serialización del protocolo UDP |
 | `anyhow` | Manejo de errores ergonómico (bridge, plugin) |
-| `dasp` | DSP: filtro bandpass, soft-clip, generación de ruido |
+| `thiserror` | Tipos de error del protocolo |
 | `libc` | Shared memory en Linux (bridge, extension) |
 | `clap` | CLI del bridge y test-client |
 | `tracing` | Logging estructurado |
@@ -306,7 +307,7 @@ Thread Local Storage (TLS) al cargarse dentro del proceso de Arma 3.
 `cargo-xwin` produce binarios idénticos a los compilados con Visual Studio
 en Windows, sin este problema.
 
-> **CI**: Las DLLs se compilan automáticamente en cada push y quedan disponibles como artefactos en GitHub Actions.
+> **CI**: Los checks de CI compilan con GNU/mingw para verificación rápida. Los artefactos de **release** (tags `v*`) se compilan con `cargo-xwin` / MSVC y quedan adjuntos al GitHub Release como archivos listos para usar.
 
 ---
 

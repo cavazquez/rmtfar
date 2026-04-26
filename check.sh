@@ -95,7 +95,7 @@ else
 fi
 
 # ── 3. Tests ─────────────────────────────────────────────────────────────────
-banner "cargo test — unit tests"
+banner "cargo test — unit + integration tests"
 if run cargo test --workspace; then
     ok "All tests passed"
 else
