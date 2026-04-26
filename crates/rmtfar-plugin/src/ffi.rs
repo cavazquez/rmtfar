@@ -33,12 +33,10 @@ pub struct MumbleStringWrapper {
 // ---------------------------------------------------------------------------
 
 /// # Safety
+/// Signature: `mumble_error_t mumble_init(mumble_plugin_id_t id)`
+/// Called by Mumble with just the assigned plugin ID — no extra args.
 #[no_mangle]
-pub unsafe extern "C" fn mumble_init(
-    _id: mumble_plugin_id_t,
-    _mumble_data_dir: *const c_char,
-    _mumble_install_dir: *const c_char,
-) -> mumble_error_t {
+pub unsafe extern "C" fn mumble_init(_id: mumble_plugin_id_t) -> mumble_error_t {
     if plugin().start() {
         MUMBLE_STATUS_OK
     } else {
