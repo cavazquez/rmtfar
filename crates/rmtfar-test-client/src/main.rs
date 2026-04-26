@@ -81,6 +81,7 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
             channel: 1,
             volume: 1.0,
             enabled: true,
+            range_m: cfg.radio_range_m,
         }),
         radio_lr: None,
     }
@@ -96,6 +97,7 @@ struct Config {
     ptt_local: bool,
     ptt_radio_sr: bool,
     freq: String,
+    radio_range_m: Option<f32>,
 }
 
 impl Config {
@@ -146,6 +148,7 @@ fn parse_args(args: &[String]) -> Result<Config> {
     let mut ptt_local = false;
     let mut ptt_radio_sr = false;
     let mut freq = "152.000".to_string();
+    let mut radio_range_m: Option<f32> = None;
 
     let mut i = 1usize;
     while i < args.len() {
@@ -183,6 +186,13 @@ fn parse_args(args: &[String]) -> Result<Config> {
             "--freq" => {
                 freq = next_arg(args, &mut i)?;
             }
+            "--radio-range" => {
+                radio_range_m = Some(
+                    next_arg(args, &mut i)?
+                        .parse()
+                        .context("--radio-range expects metres as float")?,
+                );
+            }
             "--help" | "-h" => {
                 print_help();
                 std::process::exit(0);
@@ -201,6 +211,7 @@ fn parse_args(args: &[String]) -> Result<Config> {
         ptt_local,
         ptt_radio_sr,
         freq,
+        radio_range_m,
     })
 }
 
@@ -226,6 +237,7 @@ fn print_help() {
     println!("  --ptt-local           Activate local PTT (direct voice)");
     println!("  --ptt-radio           Activate SR radio PTT");
     println!("  --freq <freq>         SR radio frequency     (default: 152.000)");
+    println!("  --radio-range <m>     Override SR radio range in metres  (default: 5000)");
     println!("  --help                Print this help\n");
     println!("EXAMPLE - test proximity audio with two terminals:");
     println!("  Terminal 1: rmtfar-test-client --id p1 --pos 0,0,0 --ptt-local");

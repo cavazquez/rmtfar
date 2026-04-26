@@ -222,11 +222,28 @@ pub unsafe extern "C" fn mumble_onAudioSourceFetched(
     user_id: mumble_userid_t,
 ) -> bool {
     if output_pcm.is_null() {
-        return true;
+        return false;
     }
     let total = (sample_count as usize) * (channel_count as usize);
     let samples = std::slice::from_raw_parts_mut(output_pcm, total);
-    plugin().process_audio(user_id, samples, sample_rate)
+
+    // process_audio returns:
+    //   true  = pass audio through (possibly with DSP applied in-place)
+    //   false = mute this user
+    //
+    // Mumble API: returning true from this callback means "I modified the buffer,
+    // use my version". Returning false means "I didn't touch it, use original audio".
+    // So when we want to mute, we must zero the buffer AND return true.
+    let pass = plugin().process_audio(user_id, samples, sample_rate);
+    if pass {
+        // DSP was applied (or pass-through for unknown users) — samples may be
+        // modified; tell Mumble to use our buffer.
+        true
+    } else {
+        // Mute: zero the buffer so Mumble plays silence.
+        samples.fill(0.0);
+        true
+    }
 }
 
 // ---------------------------------------------------------------------------

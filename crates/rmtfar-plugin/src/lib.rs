@@ -105,10 +105,16 @@ impl Plugin {
 
         let radio = self.state.last_message();
 
-        let (local_pos, local_alive, local_freq) = match radio.as_ref().and_then(|m| m.local()) {
-            Some(l) => (l.pos, l.alive && l.conscious, l.radio_freq.clone()),
-            None => return true, // no state yet, pass through
-        };
+        let (local_pos, local_alive, local_tuned_sr, local_tuned_lr) =
+            match radio.as_ref().and_then(|m| m.local()) {
+                Some(l) => (
+                    l.pos,
+                    l.alive && l.conscious,
+                    l.tuned_sr_freq.clone(),
+                    l.tuned_lr_freq.clone(),
+                ),
+                None => return true, // no state yet, pass through
+            };
 
         if !local_alive {
             return false;
@@ -130,7 +136,15 @@ impl Plugin {
         let dist = distance(&local_pos, &sender.pos);
 
         if sender.transmitting_radio {
-            if sender.radio_freq.is_empty() || sender.radio_freq != local_freq {
+            // Match sender's transmission freq against the local player's tuned freq for that
+            // radio type. The local player does not need to have PTT pressed — just the right
+            // radio equipped and tuned.
+            let local_freq = if sender.radio_type == "lr" {
+                &local_tuned_lr
+            } else {
+                &local_tuned_sr
+            };
+            if sender.radio_freq.is_empty() || sender.radio_freq != *local_freq {
                 tracing::debug!(
                     uid = %sender.steam_id,
                     sender_freq = %sender.radio_freq,

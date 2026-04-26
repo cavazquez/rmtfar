@@ -34,6 +34,10 @@ pub struct RadioConfig {
     /// Volume scalar 0.0–1.0
     pub volume: f32,
     pub enabled: bool,
+    /// Override the default radio range in metres (SR: 5000, LR: 20000).
+    /// Useful for testing without needing to be thousands of metres apart.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub range_m: Option<f32>,
 }
 
 impl Default for RadioConfig {
@@ -43,6 +47,7 @@ impl Default for RadioConfig {
             channel: 1,
             volume: 1.0,
             enabled: true,
+            range_m: None,
         }
     }
 }
@@ -143,6 +148,12 @@ pub struct PlayerSummary {
     /// Reach in metres for the current radio
     #[serde(default)]
     pub radio_range_m: f32,
+    /// Tuned SR frequency regardless of PTT — used to check listener compatibility.
+    #[serde(default)]
+    pub tuned_sr_freq: String,
+    /// Tuned LR frequency regardless of PTT — used to check listener compatibility.
+    #[serde(default)]
+    pub tuned_lr_freq: String,
 }
 
 impl PlayerSummary {
@@ -155,7 +166,7 @@ impl PlayerSummary {
                     "sr".into(),
                     cfg.freq.clone(),
                     cfg.channel,
-                    RADIO_SR_RANGE_M,
+                    cfg.range_m.unwrap_or(RADIO_SR_RANGE_M),
                 )
             } else if state.is_transmitting_lr() {
                 let cfg = state.radio_lr.as_ref().unwrap();
@@ -164,11 +175,24 @@ impl PlayerSummary {
                     "lr".into(),
                     cfg.freq.clone(),
                     cfg.channel,
-                    RADIO_LR_RANGE_M,
+                    cfg.range_m.unwrap_or(RADIO_LR_RANGE_M),
                 )
             } else {
                 (false, String::new(), String::new(), 0, 0.0)
             };
+
+        let tuned_sr_freq = state
+            .radio_sr
+            .as_ref()
+            .filter(|r| r.enabled)
+            .map(|r| r.freq.clone())
+            .unwrap_or_default();
+        let tuned_lr_freq = state
+            .radio_lr
+            .as_ref()
+            .filter(|r| r.enabled)
+            .map(|r| r.freq.clone())
+            .unwrap_or_default();
 
         Self {
             steam_id: state.steam_id.clone(),
@@ -182,6 +206,8 @@ impl PlayerSummary {
             radio_freq,
             radio_channel,
             radio_range_m,
+            tuned_sr_freq,
+            tuned_lr_freq,
         }
     }
 }
