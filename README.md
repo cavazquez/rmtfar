@@ -16,18 +16,18 @@
 
 ## 🛠️ Tech Stack
 
-|| | Tecnología | Rol |
-|---|---|---|
-|| 🦀 | **Rust** | Extension DLL, bridge y plugin de Mumble |
-|| 🎮 | **SQF** | Scripts dentro de Arma 3 |
-|| 🎙️ | **Mumble 1.5+** | Transporte de voz (cliente, verificado en 1.5.735) |
-|| 🖥️ | **Murmur** | Servidor de voz |
-|| 📦 | **serde / serde_json** | Serialización del protocolo |
-|| 🔊 | **dasp** | DSP: filtro bandpass, soft-clip y ruido de radio |
-|| 🧵 | **UDP** | Comunicación local entre componentes |
-|| 🧠 | **MumbleLink** | Shared memory para audio posicional |
-|| ⚙️ | **C FFI** | Bindings al API de plugin de Mumble |
-|| 🔒 | **GPLv3** | Licencia compatible con Mumble y ACRE2 |
+| Tecnología | Rol |
+|---|---|
+| 🦀 **Rust** | Extension DLL, bridge y plugin de Mumble |
+| 🎮 **SQF** | Scripts dentro de Arma 3 |
+| 🎙️ **Mumble 1.5+** | Transporte de voz (cliente, verificado en 1.5.735) |
+| 🖥️ **Murmur** | Servidor de voz |
+| 📦 **serde / serde_json** | Serialización del protocolo |
+| 🔊 **dasp** | DSP: filtro bandpass, soft-clip y ruido de radio |
+| 🧵 **UDP** | Comunicación local entre componentes |
+| 🧠 **MumbleLink** | Shared memory para audio posicional |
+| ⚙️ **C FFI** | Bindings al API de plugin de Mumble |
+| 🔒 **GPLv3** | Licencia compatible con Mumble y ACRE2 |
 
 ---
 
@@ -94,7 +94,10 @@
 | **DSP de radio** — bandpass + soft-clip + ruido | ✅ | audible, varía con distancia |
 | **Muerte** — `alive=false` bloquea todo PTT | ✅ | log: `dead — muted` |
 | **Inconsciente** — `conscious=false` bloquea PTT | ✅ | log: `unconscious — muted` |
+| **Radio LR** — frecuencia, canal y rango independientes del SR | ✅ | rango default 20 km |
+| **Vehículo** — PTT local bloqueado, radio sigue funcionando | ✅ | log: `in vehicle, no radio PTT — muted` |
 | Mute correcto (zerear buffer, return true) | ✅ | fix API Mumble |
+| **Tests de integración en CI** — 56 tests automatizados | ✅ | unit + integración bridge (subprocess UDP) |
 | Extension DLL para Arma 3 | ⚠️ | Solo Windows (cross-compile pendiente) |
 
 ### 🗺️ Fases de desarrollo
@@ -142,11 +145,12 @@
   "local_player": "Jugador2",
   "players": [
     {
-      "steam_id": "cristian",
+      "steam_id": "Jugador1",
       "pos": [200.0, 0.0, 0.0],
       "dir": 0.0,
       "alive": true,
       "conscious": true,
+      "in_vehicle": false,
       "transmitting_local": false,
       "transmitting_radio": true,
       "radio_type": "sr",
@@ -175,16 +179,13 @@ rmtfar/
 ├── 🔧 install-plugin.sh           # Compila e instala el plugin en todos los paths de Mumble
 ├── 📂 .github/
 │   └── workflows/
+│       ├── ci.yml                 # CI: fmt + clippy + 56 tests + build plugin/bridge
 │       └── dep-audit.yml          # Auditoría anual de dependencias (diciembre)
-├── 📚 docs/
-│   ├── architecture.md
-│   ├── protocol.md
-│   ├── building.md
-│   └── setup-guide.md
 ├── 📦 crates/
 │   ├── rmtfar-protocol/           # Tipos compartidos (PlayerState, RadioStateMessage…)
 │   ├── rmtfar-extension/          # DLL para Arma 3 (cdylib, C ABI)
 │   ├── rmtfar-bridge/             # Proceso bridge local
+│   │   └── tests/integration.rs  # Tests de integración (bridge subprocess + UDP)
 │   ├── rmtfar-plugin/             # Plugin de Mumble (cdylib, C FFI)
 │   └── rmtfar-test-client/        # Simulador sin necesidad de Arma 3
 ├── 🪖 arma-mod/
@@ -256,7 +257,7 @@ El script compila el plugin y lo copia a todos los paths que Mumble puede usar:
 
 ```bash
 mumble &             # Instancia A — Jugador2 (tiene el plugin activo)
-mumble --multiple &  # Instancia B — cristian
+mumble --multiple &  # Instancia B — Jugador1
 ```
 
 Conectá ambas a `localhost`. El nombre de usuario de cada instancia debe coincidir con el `--id` del test-client.
@@ -277,13 +278,13 @@ cargo run --release -p rmtfar-bridge -- --local-id "Jugador2"
 # Jugador2 sintonizado en 43.0 (sin PTT — solo escucha)
 cargo run --release -p rmtfar-test-client -- --id "Jugador2" --freq 43.0
 
-# cristian transmite en la misma frecuencia → se escucha con efecto radio
+# Jugador1 transmite en la misma frecuencia → se escucha con efecto radio
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --freq 43.0 --ptt-radio --pos 200,0,0 --radio-range 500
+  --id "Jugador1" --freq 43.0 --ptt-radio --pos 200,0,0 --radio-range 500
 
-# cristian en frecuencia diferente → silencio
+# Jugador1 en frecuencia diferente → silencio
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --freq 50.0 --ptt-radio --pos 200,0,0 --radio-range 500
+  --id "Jugador1" --freq 50.0 --ptt-radio --pos 200,0,0 --radio-range 500
 ```
 
 #### 📡 Prueba de rango de radio
@@ -291,52 +292,79 @@ cargo run --release -p rmtfar-test-client -- \
 ```bash
 # Dentro del rango (200m < 500m) → DSP aplicado, audible
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --freq 43.0 --ptt-radio --pos 200,0,0 --radio-range 500
+  --id "Jugador1" --freq 43.0 --ptt-radio --pos 200,0,0 --radio-range 500
 
 # Fuera del rango (800m > 500m) → silencio
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --freq 43.0 --ptt-radio --pos 800,0,0 --radio-range 500
+  --id "Jugador1" --freq 43.0 --ptt-radio --pos 800,0,0 --radio-range 500
 ```
 
 #### 🔢 Prueba de canal
 
 ```bash
-# Jugador2 en canal 1, cristian en canal 2 → silencio (misma freq, distinto canal)
+# Jugador2 en canal 1, Jugador1 en canal 2 → silencio (misma freq, distinto canal)
 cargo run --release -p rmtfar-test-client -- --id "Jugador2" --freq 43.0 --channel 1
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --freq 43.0 --channel 2 --ptt-radio --pos 200,0,0 --radio-range 500
+  --id "Jugador1" --freq 43.0 --channel 2 --ptt-radio --pos 200,0,0 --radio-range 500
 
 # Ambos en canal 1 → audible
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --freq 43.0 --channel 1 --ptt-radio --pos 200,0,0 --radio-range 500
+  --id "Jugador1" --freq 43.0 --channel 1 --ptt-radio --pos 200,0,0 --radio-range 500
 ```
 
 #### ☠️ Prueba de muerte / inconsciente
 
 ```bash
-# cristian muerto → PTT bloqueado, log: "dead — muted"
+# Jugador1 muerto → PTT bloqueado, log: "dead — muted"
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --freq 43.0 --ptt-radio --pos 200,0,0 --radio-range 500 --dead
+  --id "Jugador1" --freq 43.0 --ptt-radio --pos 200,0,0 --radio-range 500 --dead
 
-# cristian inconsciente (ACE) → PTT bloqueado, log: "unconscious — muted"
+# Jugador1 inconsciente (ACE) → PTT bloqueado, log: "unconscious — muted"
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --freq 43.0 --ptt-radio --pos 200,0,0 --radio-range 500 --unconscious
+  --id "Jugador1" --freq 43.0 --ptt-radio --pos 200,0,0 --radio-range 500 --unconscious
+```
+
+#### 🚗 Prueba de vehículo
+
+```bash
+# Jugador1 en vehículo + PTT local → bloqueado, log: "in vehicle, no radio PTT — muted"
+cargo run --release -p rmtfar-test-client -- \
+  --id "Jugador1" --ptt-local --vehicle B_MRAP_01_F
+
+# Jugador1 en vehículo + PTT radio → audible con DSP
+cargo run --release -p rmtfar-test-client -- \
+  --id "Jugador1" --freq 43.0 --ptt-radio --pos 200,0,0 --vehicle B_MRAP_01_F --radio-range 500
+```
+
+#### 📻 Prueba de radio LR (largo rango)
+
+```bash
+# Jugador2 escucha LR en 30.0
+cargo run --release -p rmtfar-test-client -- --id "Jugador2" --freq-lr 30.0
+
+# Jugador1 transmite por LR en la misma freq (rango default 20 km)
+cargo run --release -p rmtfar-test-client -- \
+  --id "Jugador1" --freq-lr 30.0 --ptt-radio-lr --pos 5000,0,0
+
+# Jugador1 fuera de rango LR (> 20 km) → silencio
+cargo run --release -p rmtfar-test-client -- \
+  --id "Jugador1" --freq-lr 30.0 --ptt-radio-lr --pos 25000,0,0
 ```
 
 #### 👂 Prueba de proximidad local
 
 ```bash
-# cristian a 20m → se escucha fuerte
+# Jugador1 a 20m → se escucha fuerte
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --ptt-local --pos 20,0,0
+  --id "Jugador1" --ptt-local --pos 20,0,0
 
-# cristian a 45m → se escucha suave (volumen ~10%)
+# Jugador1 a 45m → se escucha suave (volumen ~10%)
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --ptt-local --pos 45,0,0
+  --id "Jugador1" --ptt-local --pos 45,0,0
 
-# cristian a 60m → silencio (> 50m de rango local)
+# Jugador1 a 60m → silencio (> 50m de rango local)
 cargo run --release -p rmtfar-test-client -- \
-  --id "cristian" --ptt-local --pos 60,0,0
+  --id "Jugador1" --ptt-local --pos 60,0,0
 ```
 
 ### Paso 5 — Verificar logs del plugin
@@ -344,15 +372,16 @@ cargo run --release -p rmtfar-test-client -- \
 Los logs aparecen en el terminal donde corrés Mumble:
 
 ```
-INFO  RMTFAR: registering identity user_id=37 name=cristian
-DEBUG rmtfar_plugin: radio — applying DSP uid=cristian dist=200.0
-DEBUG rmtfar_plugin: out of radio range — muted uid=cristian dist=800.0
-DEBUG rmtfar_plugin: radio freq mismatch — muted uid=cristian sender_freq=50.0 local_freq=43.0
-DEBUG rmtfar_plugin: radio channel mismatch — muted uid=cristian sender_ch=2 local_ch=1
-DEBUG rmtfar_plugin: dead — muted uid=cristian
-DEBUG rmtfar_plugin: unconscious — muted uid=cristian
-DEBUG rmtfar_plugin: local voice uid=cristian dist=20.0 volume=0.60
-DEBUG rmtfar_plugin: out of local range — muted uid=cristian dist=60.0
+INFO  RMTFAR: registering identity user_id=37 name=Jugador1
+DEBUG rmtfar_plugin: radio — applying DSP uid=Jugador1 dist=200.0
+DEBUG rmtfar_plugin: out of radio range — muted uid=Jugador1 dist=800.0
+DEBUG rmtfar_plugin: radio freq mismatch — muted uid=Jugador1 sender_freq=50.0 local_freq=43.0
+DEBUG rmtfar_plugin: radio channel mismatch — muted uid=Jugador1 sender_ch=2 local_ch=1
+DEBUG rmtfar_plugin: dead — muted uid=Jugador1
+DEBUG rmtfar_plugin: unconscious — muted uid=Jugador1
+DEBUG rmtfar_plugin: in vehicle, no radio PTT — muted uid=Jugador1
+DEBUG rmtfar_plugin: local voice uid=Jugador1 dist=20.0 volume=0.60
+DEBUG rmtfar_plugin: out of local range — muted uid=Jugador1 dist=60.0
 ```
 
 ---
@@ -365,7 +394,17 @@ cargo fmt --all   # Formateo automático
 cargo test --workspace
 ```
 
-El CI corre en cada push: formato, clippy, tests y build del plugin/bridge para Linux.  
+El CI corre en cada push: formato, clippy, **56 tests automatizados** (unitarios + integración) y build del plugin/bridge para Linux.
+
+### 🧪 Cobertura de tests
+
+| Crate | Tests | Qué cubren |
+|---|---|---|
+| `rmtfar-protocol` | 19 | Serialización, campos de PlayerSummary, vehicle, tuned_freq, LR, muerte/inconsciente |
+| `rmtfar-plugin` | 18 | `process_audio`: freq, canal, rango, muerte, inconsciente, vehículo, proximidad, atenuación |
+| `rmtfar-bridge` (unit) | 14 | Matching SR/LR, rango, muerte, canal, signal quality, vehicle |
+| `rmtfar-bridge` (integración) | 5 | Bridge subprocess real + UDP: SR, multi-jugador, muerte, vehículo, LR |
+
 Una [auditoría de dependencias](.github/workflows/dep-audit.yml) se ejecuta automáticamente cada **1 de diciembre**.
 
 ---
