@@ -21,13 +21,12 @@ trap 'rm -rf "$TMPDIR"' EXIT
 # ── manifest.xml — formato v1.0.0 (Mumble 1.4.0+) ────────────────────────────
 # Fuente: PluginManifest.cpp en mumble-voip/mumble v1.5.735
 #   - <bundle version="1.0.0">  ← atributo "version", NO "format"
-#   - os="linux"  arch="x86_64" ← verificado con strings(1) sobre el binario
-#     (la doc oficial dice "x64" pero el Ubuntu build usa "x86_64")
+#   - os="linux"  arch="x64"  ← confirmado por el mensaje de error de Mumble
 cat > "$TMPDIR/manifest.xml" <<'XML'
 <?xml version="1.0" encoding="UTF-8"?>
 <bundle version="1.0.0">
   <assets>
-    <plugin os="linux" arch="x86_64">librmtfar_plugin.so</plugin>
+    <plugin os="linux" arch="x64">librmtfar_plugin.so</plugin>
   </assets>
   <name>RMTFAR</name>
   <version>0.1.0</version>
