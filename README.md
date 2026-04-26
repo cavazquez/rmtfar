@@ -223,7 +223,7 @@ rmtfar/
 | Mod | Requerido | Uso |
 |---|---|---|
 | [CBA_A3](https://github.com/CBATeam/CBA_A3) | Recomendado | Keybinds y settings |
-| [ACE3](https://github.com/acemod/ACE3) | Opcional | Estado inconsciente |
+| [ACE3](https://github.com/acemod/ACE3) | Opcional | Estado inconsciente: lee `ACE_isUnconscious` via `getVariable` (default `false` sin ACE3, sin errores) |
 
 ### 🎙️ Voz
 
