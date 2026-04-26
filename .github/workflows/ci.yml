@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  check:
+    name: Format + Clippy + Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable + componentes)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-
+
+      - name: rustfmt
+        run: cargo fmt --all -- --check
+
+      - name: clippy
+        run: |
+          cargo clippy \
+            --workspace \
+            --all-targets \
+            -- \
+            -D warnings \
+            -W clippy::pedantic \
+            -A clippy::must_use_candidate \
+            -A clippy::missing_errors_doc \
+            -A clippy::missing_panics_doc
+
+      - name: Tests unitarios
+        run: cargo test --workspace
+
+      - name: cargo doc
+        run: cargo doc --workspace --no-deps
+        env:
+          RUSTDOCFLAGS: "-D warnings"
+
+  build-plugin-linux:
+    name: Build plugin (.so Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-plugin-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-plugin-
+
+      - name: Compilar plugin (release)
+        run: cargo build --release -p rmtfar-plugin
+
+      - name: Verificar que el .so existe y exporta los símbolos de Mumble
+        run: |
+          SO=target/release/librmtfar_plugin.so
+          echo "=== Tamaño ==="
+          ls -lh "$SO"
+          echo "=== Símbolos exportados de Mumble ==="
+          nm -D "$SO" | grep -E 'mumble_' | head -20
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rmtfar-plugin-linux-x64
+          path: target/release/librmtfar_plugin.so
+          retention-days: 7
+
+  build-bridge-linux:
+    name: Build bridge (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-bridge-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bridge-
+
+      - name: Compilar bridge + test-client (release)
+        run: cargo build --release -p rmtfar-bridge -p rmtfar-test-client
+
+      - name: Upload bridge artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rmtfar-bridge-linux-x64
+          path: |
+            target/release/rmtfar-bridge
+            target/release/rmtfar-test-client
+          retention-days: 7

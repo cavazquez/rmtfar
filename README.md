@@ -4,6 +4,7 @@
 
 <div align="center">
 
+[![CI](https://github.com/cavazquez/rmtfar/actions/workflows/ci.yml/badge.svg)](https://github.com/cavazquez/rmtfar/actions/workflows/ci.yml)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-f74c00?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Mumble](https://img.shields.io/badge/Mumble-1.4.0+-darkgreen?logo=mumble&logoColor=white)](https://www.mumble.info/)
@@ -214,6 +215,67 @@ rmtfar/
 
 ---
 
+## 🐧 Cómo probar en Linux (sin Arma 3)
+
+Esta es la forma más rápida de ver el sistema funcionando end-to-end en Linux.
+
+### Requisitos
+
+```bash
+sudo apt install mumble   # Mumble 1.4+ (1.5.x disponible en Ubuntu 24.04)
+```
+
+### Paso 1 — Compilar e instalar el plugin en Mumble
+
+```bash
+./scripts/build-plugin-linux.sh
+```
+
+Compila `librmtfar_plugin.so` y lo copia a `~/.local/share/mumble/Plugins/`.
+
+### Paso 2 — Activar el plugin en Mumble
+
+1. Abrí Mumble → **Configuración → Plugins**
+2. Activá **RMTFAR** en la lista
+3. Conectate a cualquier servidor Murmur (podés usar el público `mumble.iphostname.com`)
+
+### Paso 3 — Arrancar el bridge
+
+```bash
+cargo run --release -p rmtfar-bridge
+```
+
+### Paso 4 — Simular jugadores (en terminales separadas)
+
+```bash
+# Jugador 1 — caminando en círculos con voz directa
+cargo run --release -p rmtfar-test-client -- \
+  --id p1 --orbit --ptt-local
+
+# Jugador 2 — transmitiendo por radio en frecuencia 152.000
+cargo run --release -p rmtfar-test-client -- \
+  --id p2 --pos 150,0,0 --ptt-radio --freq 152.000
+
+# Jugador 3 — radio en diferente frecuencia (no se escucha con p2)
+cargo run --release -p rmtfar-test-client -- \
+  --id p3 --pos 200,0,0 --ptt-radio --freq 155.000
+```
+
+El bridge imprime en tiempo real qué jugadores están transmitiendo, qué frecuencia usan y si coinciden. Mumble aplica el audio posicional a través de MumbleLink.
+
+### Qué funciona en Linux hoy
+
+| Feature | Estado |
+|---|---|
+| Bridge recibiendo estado UDP | ✅ |
+| Audio posicional vía MumbleLink | ✅ (con Mumble corriendo) |
+| Plugin filtrando audio por frecuencia | ✅ |
+| DSP de radio (bandpass + ruido) | ✅ |
+| Tests unitarios completos | ✅ |
+| Extension DLL para Arma 3 | ⚠️ Solo Windows (cross-compile) |
+
+---
+
 ## 🔍 Calidad de código
 
 ```bash
@@ -222,7 +284,8 @@ cargo fmt --all   # Formateo automático
 cargo test --workspace
 ```
 
-El CI ejecuta una [auditoría de seguridad](`.github/workflows/dep-audit.yml`) automática cada **1 de diciembre**, o cuando se activa manualmente desde la pestaña Actions.
+El CI corre en cada push: formato, clippy, tests y build del plugin/bridge para Linux.  
+Una [auditoría de dependencias](.github/workflows/dep-audit.yml) se ejecuta automáticamente cada **1 de diciembre**.
 
 ---
 
