@@ -22,21 +22,22 @@ use rmtfar_protocol::{PlayerState, RadioConfig};
 use std::net::UdpSocket;
 use std::time::{Duration, Instant};
 
-const BRIDGE_ADDR: &str = "127.0.0.1:9500";
+const DEFAULT_BRIDGE_ADDR: &str = "127.0.0.1:9500";
 const SEND_INTERVAL: Duration = Duration::from_millis(50); // 20 Hz
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().collect();
     let config = parse_args(&args)?;
 
-    let socket = UdpSocket::bind("127.0.0.1:0").context("bind")?;
-    socket.connect(BRIDGE_ADDR).context("connect")?;
+    let bridge_addr = &config.bridge_addr;
+    let socket = UdpSocket::bind("0.0.0.0:0").context("bind")?;
+    socket.connect(bridge_addr.as_str()).context("connect")?;
 
     println!("RMTFAR Test Client");
     println!("  Player : {}", config.steam_id);
     println!("  Server : {}", config.server_id);
     println!("  Mode   : {}", config.mode_label());
-    println!("  Target : {BRIDGE_ADDR} @ 20 Hz  (Ctrl-C to stop)\n");
+    println!("  Target : {bridge_addr} @ 20 Hz  (Ctrl-C to stop)\n");
 
     let start = Instant::now();
     let mut tick: u64 = 0;
@@ -108,6 +109,7 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
 struct Config {
     steam_id: String,
     server_id: String,
+    bridge_addr: String,
     base_pos: [f32; 3],
     orbit: bool,
     orbit_radius: f32,
@@ -187,6 +189,7 @@ fn parse_args(args: &[String]) -> Result<Config> {
     let mut alive = true;
     let mut conscious = true;
     let mut vehicle = String::new();
+    let mut bridge_addr = DEFAULT_BRIDGE_ADDR.to_string();
 
     let mut i = 1usize;
     while i < args.len() {
@@ -266,6 +269,9 @@ fn parse_args(args: &[String]) -> Result<Config> {
                         .context("--radio-range expects metres as float")?,
                 );
             }
+            "--bridge-addr" => {
+                bridge_addr = next_arg(args, &mut i)?;
+            }
             "--help" | "-h" => {
                 print_help();
                 std::process::exit(0);
@@ -277,6 +283,7 @@ fn parse_args(args: &[String]) -> Result<Config> {
     Ok(Config {
         steam_id,
         server_id,
+        bridge_addr,
         base_pos,
         orbit,
         orbit_radius,
@@ -327,6 +334,7 @@ fn print_help() {
     println!("  --vehicle <classname> Simulate being inside a vehicle (blocks local PTT)");
     println!("  --dead                Simulate dead player (all PTT blocked)");
     println!("  --unconscious         Simulate ACE unconscious (all PTT blocked)");
+    println!("  --bridge-addr <h:p>   Bridge address          (default: {DEFAULT_BRIDGE_ADDR})");
     println!("  --help                Print this help\n");
     println!("EXAMPLE - test proximity audio with two terminals:");
     println!("  Terminal 1: rmtfar-test-client --id p1 --pos 0,0,0 --ptt-local");

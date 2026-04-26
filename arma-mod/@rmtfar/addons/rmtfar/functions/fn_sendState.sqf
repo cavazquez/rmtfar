@@ -9,9 +9,26 @@ private _alive = if (_state get "alive")     then { "true" } else { "false" };
 private _cons  = if (_state get "conscious") then { "true" } else { "false" };
 private _pttL  = if (_state get "ptt_local")    then { "true" } else { "false" };
 private _pttR  = if (_state get "ptt_radio_sr") then { "true" } else { "false" };
+private _pttLR = if (_state get "ptt_radio_lr") then { "true" } else { "false" };
+
+private _freqLR  = _state get "radio_freq_lr";
+private _chLR    = _state get "radio_channel_lr";
+private _vehicle = _state get "vehicle";
+
+private _radioLR = "null";
+if (_freqLR != "") then {
+    _radioLR = format [
+        "{""freq"":""%1"",""channel"":%2,""volume"":1.0,""enabled"":true}",
+        _freqLR, _chLR
+    ];
+};
+
+private _vehicleJson = if (_vehicle == "") then { """""" } else {
+    format ["""%1""", _vehicle]
+};
 
 private _json = format [
-    "{""v"":1,""type"":""player_state"",""steam_id"":""%1"",""server_id"":""%2"",""tick"":%3,""pos"":[%4,%5,%6],""dir"":%7,""alive"":%8,""conscious"":%9,""ptt_local"":%10,""ptt_radio_sr"":%11,""radio_sr"":{""freq"":""%12"",""channel"":%13,""volume"":1.0,""enabled"":true}}",
+    "{""v"":1,""type"":""player_state"",""steam_id"":""%1"",""server_id"":""%2"",""tick"":%3,""pos"":[%4,%5,%6],""dir"":%7,""alive"":%8,""conscious"":%9,""vehicle"":%10,""ptt_local"":%11,""ptt_radio_sr"":%12,""ptt_radio_lr"":%13,""radio_sr"":{""freq"":""%14"",""channel"":%15,""volume"":1.0,""enabled"":true},""radio_lr"":%16}",
     _state get "uid",
     serverName,
     diag_tickTime,
@@ -21,10 +38,13 @@ private _json = format [
     _state get "dir",
     _alive,
     _cons,
+    _vehicleJson,
     _pttL,
     _pttR,
+    _pttLR,
     _state get "radio_freq",
-    _state get "radio_channel"
+    _state get "radio_channel",
+    _radioLR
 ];
 
 "rmtfar" callExtension ["send", [_json]];

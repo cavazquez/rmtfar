@@ -4,7 +4,7 @@
 
 - Arma 3
 - [CBA_A3](https://github.com/CBATeam/CBA_A3)
-- [Mumble](https://www.mumble.info/) 1.4.0+
+- [Mumble](https://www.mumble.info/) 1.5.0+
 - A Murmur (Mumble) server
 
 ## Installation
@@ -28,20 +28,14 @@ The `rmtfar_x64.dll` must be in the `@rmtfar` root folder.
 > disable BattlEye or whitelist the DLL manually. See the project README
 > for the whitelist request status.
 
-### 3. Run the Bridge
+### 3. Launch
 
-Start the bridge before launching Arma 3:
+1. Open Mumble and connect to the Murmur server
+2. Launch Arma 3 with `@rmtfar` and `@CBA_A3` mods enabled
+3. Join a mission
 
-```bash
-# Windows
-rmtfar-bridge.exe
-
-# Linux (if running Arma via Proton/Wine)
-./rmtfar-bridge
-```
-
-The bridge listens on `127.0.0.1:9500` (from Arma) and sends to
-`127.0.0.1:9501` (to Mumble plugin).
+> **No bridge needed.** The extension DLL communicates directly with the
+> Mumble plugin via UDP on localhost (like TFAR does with TeamSpeak).
 
 ### 4. Configure Keys
 
@@ -64,7 +58,7 @@ Open the debug console or use a radio action:
 
 **No audio effect / positional audio not working:**
 - Make sure Mumble's positional audio is enabled: *Configure → Settings → Audio Output → Positional Audio*
-- Verify the bridge is running and connected
+- Verify both players are on the same Arma 3 server and the same Murmur server
 
 **"Extension not loaded" message:**
 - Check `rmtfar_x64.dll` is in `@rmtfar/`
@@ -72,4 +66,4 @@ Open the debug console or use a radio action:
 
 **Players can't hear each other on radio:**
 - Confirm both players are on the same frequency and channel
-- Check the bridge logs for received packets
+- Check the Arma 3 RPT logs for RMTFAR errors

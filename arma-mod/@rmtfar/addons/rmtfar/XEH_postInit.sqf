@@ -10,6 +10,9 @@ if (_version isEqualTo "") exitWith {
 
 diag_log format ["RMTFAR: Extension v%1 found", _version];
 
+// Register local player with the extension (no bridge needed)
+"rmtfar" callExtension ["init", [getPlayerUID player]];
+
 RMTFAR_enabled = true;
 
 [] spawn RMTFAR_fnc_loop;

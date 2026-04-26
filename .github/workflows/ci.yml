@@ -209,6 +209,45 @@ jobs:
           path: rmtfar_x64.dll
           retention-days: 30
 
+  build-bridge-windows:
+    name: Build bridge (.exe Windows x64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Install Rust (stable + Windows target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: Install mingw-w64
+        run: sudo apt-get install -y mingw-w64
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-bridge-win-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-bridge-win-
+
+      - name: Compilar bridge (release)
+        run: cargo build --release -p rmtfar-bridge --target x86_64-pc-windows-gnu
+
+      - name: Upload bridge artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: rmtfar-bridge-windows-x64
+          path: target/x86_64-pc-windows-gnu/release/rmtfar-bridge.exe
+          retention-days: 30
+
   build-bridge-linux:
     name: Build bridge (Linux)
     runs-on: ubuntu-latest

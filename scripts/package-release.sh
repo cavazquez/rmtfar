@@ -21,6 +21,8 @@ echo "=== Empaquetando RMTFAR v$VERSION ==="
 # Build release
 RELEASE=1 bash scripts/build-all.sh
 RELEASE=1 bash scripts/build-extension.sh
+TARGET=windows RELEASE=1 bash scripts/build-plugin.sh
+RELEASE=1 bash scripts/build-bridge-windows.sh
 
 # Copiar binarios
 cp target/x86_64-pc-windows-gnu/release/rmtfar_x64.dll \
@@ -32,6 +34,9 @@ cp -r arma-mod/@rmtfar "$DIST/"
 mkdir -p "$DIST/bin"
 cp target/release/rmtfar-bridge "$DIST/bin/" 2>/dev/null || true
 cp target/release/librmtfar_plugin.so "$DIST/bin/" 2>/dev/null || true
+
+# Bridge para Windows (ya copiado a @rmtfar por build-bridge-windows.sh)
+echo "Bridge Windows incluido en $DIST/@rmtfar/rmtfar-bridge.exe"
 
 cp LICENSE "$DIST/"
 cp README.md "$DIST/"

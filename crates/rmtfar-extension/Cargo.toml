@@ -12,5 +12,14 @@ crate-type = ["cdylib"]
 
 [dependencies]
 rmtfar-protocol = { path = "../rmtfar-protocol" }
+serde_json.workspace = true
+anyhow.workspace = true
 
-# serde_json is not needed: the extension forwards raw JSON bytes from SQF as-is
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.62", features = [
+    "Win32_System_Memory",
+    "Win32_Foundation",
+] }

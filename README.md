@@ -34,47 +34,44 @@
 ## 🗺️ Arquitectura
 
 ```
-┌──────────────────────────────┐
-│  🎮 Arma 3 Client            │
-│  ┌──────────────────────┐    │
-│  │ SQF Scripts (@rmtfar)│    │
-│  │  getPos, getDir, PTT │    │
-│  └──────────┬───────────┘    │
-│             │ callExtension  │
-│  ┌──────────▼───────────┐    │
-│  │ 🦀 Extension DLL     │    │
-│  │   rmtfar_x64.dll     │    │
-│  └──────────┬───────────┘    │
-└─────────────┼────────────────┘
-              │ UDP :9500 (localhost)
-┌─────────────▼────────────────┐
-│  🦀 RMTFAR Bridge            │
-│  - Recibe estado del jugador │
-│  - Escribe MumbleLink (shm)  │
-│  - Broadcast radio → :9501   │
-└──────┬───────────────────────┘
-       │
-       ├─── 🧠 SharedMem "MumbleLink" ──────────┐
-       │                                         │
-       └─── 📡 UDP :9501 ───────────────────────┤
-                                                 │
-┌────────────────────────────────────────────────▼──┐
-│  🎙️ Mumble Client                                  │
-│  ┌──────────────────────────────────────────────┐  │
-│  │ 🦀 RMTFAR Plugin (Rust + C FFI)              │  │
-│  │  - Lee MumbleLink (audio posicional)         │  │
-│  │  - Recibe radio state del bridge             │  │
-│  │  - Audio callbacks: mute/unmute por usuario  │  │
-│  │  - 🔊 DSP: biquad + AGC + bitcrusher + ruido  │  │
-│  └──────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────┘
+┌──────────────────────────────────────────┐
+│  🎮 Arma 3 Client                        │
+│  ┌──────────────────────┐                │
+│  │ SQF Scripts (@rmtfar)│                │
+│  │  getPos, getDir, PTT │                │
+│  │  allPlayers broadcast│                │
+│  └──────────┬───────────┘                │
+│             │ callExtension              │
+│  ┌──────────▼───────────────────────┐    │
+│  │ 🦀 Extension DLL (rmtfar_x64)    │    │
+│  │  - Acumula estado de jugadores   │    │
+│  │  - Escribe MumbleLink (shm)      │    │
+│  │  - Envía RadioState → plugin     │    │
+│  └──────┬──────────────┬────────────┘    │
+└─────────┼──────────────┼────────────────┘
+          │              │
+          │ SharedMem    │ UDP :9501 (localhost)
+          │ "MumbleLink" │
+┌─────────▼──────────────▼────────────────────┐
+│  🎙️ Mumble Client                            │
+│  ┌────────────────────────────────────────┐  │
+│  │ 🦀 RMTFAR Plugin (Rust + C FFI)        │  │
+│  │  - Lee MumbleLink (audio posicional)   │  │
+│  │  - Recibe radio state de la extension  │  │
+│  │  - Audio callbacks: mute/unmute        │  │
+│  │  - 🔊 DSP: biquad + AGC + bitcrusher   │  │
+│  └────────────────────────────────────────┘  │
+└──────────────────────────────────────────────┘
 ```
+
+> **Sin bridge**: la extension DLL se comunica directamente con el plugin
+> de Mumble (igual que TFAR con TeamSpeak). No hay proceso intermedio.
 
 | Componente | Dónde vive | Lenguaje | Rol |
 |---|---|---|---|
-| `@rmtfar` (mod Arma) | Arma 3 | SQF + DLL Rust | Captura y envía estado del jugador |
-| Bridge | Máquina local | 🦀 Rust | Traduce estado de juego → datos Mumble |
+| `@rmtfar` (mod Arma) | Arma 3 | SQF + DLL Rust | Captura estado de todos los jugadores, escribe MumbleLink, envía radio state |
 | Plugin Mumble | Cliente Mumble | 🦀 Rust + C FFI | Procesa audio por usuario |
+| Bridge (testing) | Máquina local | 🦀 Rust | Solo para testing en Linux sin Arma 3 |
 
 ---
 
@@ -186,8 +183,8 @@ rmtfar/
 │       └── dep-audit.yml          # Auditoría anual de dependencias (diciembre)
 ├── 📦 crates/
 │   ├── rmtfar-protocol/           # Tipos compartidos (PlayerState, RadioStateMessage…)
-│   ├── rmtfar-extension/          # DLL para Arma 3 (cdylib, C ABI)
-│   ├── rmtfar-bridge/             # Proceso bridge local
+│   ├── rmtfar-extension/          # DLL para Arma 3 (cdylib, C ABI) — envía directo al plugin
+│   ├── rmtfar-bridge/             # Proceso bridge (solo testing Linux sin Arma)
 │   │   └── tests/integration.rs  # Tests de integración (bridge subprocess + UDP)
 │   ├── rmtfar-plugin/             # Plugin de Mumble (cdylib, C FFI)
 │   └── rmtfar-test-client/        # Simulador sin necesidad de Arma 3
@@ -322,6 +319,10 @@ private _result = "rmtfar" callExtension ["send", [_jsonState]];
 
 ## 🐧 Cómo probar en Linux (sin Arma 3)
 
+> **Nota:** El bridge solo se usa para testing en Linux donde no hay Arma 3.
+> En producción (Windows + Arma 3), la extension DLL se comunica directamente
+> con el plugin de Mumble — no se necesita bridge.
+
 Guía paso a paso para verificar el sistema completo en Linux con dos instancias de Mumble.
 
 ### Requisitos
@@ -352,13 +353,16 @@ mumble --multiple &  # Instancia B — Jugador1
 
 Conectá ambas a `localhost`. El nombre de usuario de cada instancia debe coincidir con el `--id` del test-client.
 
-### Paso 3 — Arrancar el bridge
+### Paso 3 — Arrancar el bridge (solo testing Linux)
 
 ```bash
 cargo run --release -p rmtfar-bridge -- --local-id "Jugador2"
 ```
 
 `--local-id` fija qué jugador es el oyente local (el que tiene Mumble con el plugin).
+
+> En producción con Arma 3 en Windows, este paso no es necesario — la
+> extension DLL reemplaza al bridge.
 
 ### Paso 4 — Simular estado de jugadores
 
