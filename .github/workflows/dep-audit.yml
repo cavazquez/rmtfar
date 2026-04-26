@@ -10,7 +10,6 @@ on:
 
 permissions:
   contents: read
-  # Permite abrir issues automáticamente si se configura en el futuro
   issues: write
 
 jobs:
@@ -21,33 +20,41 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
 
       - name: Install Rust toolchain (stable)
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Cache Cargo registry
-        uses: actions/cache@v5
+      - name: Cache Rust dependencies
+        uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-          key: ${{ runner.os }}-cargo-audit-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-audit-
+          shared-key: dep-audit
 
-      - name: Install cargo-audit
-        run: cargo install cargo-audit --locked
+      - name: Cache cargo-audit binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-audit
+          key: cargo-audit-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-audit-${{ runner.os }}-
 
-      - name: Install cargo-outdated
-        run: cargo install cargo-outdated --locked
+      - name: Cache cargo-outdated binary
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/cargo-outdated
+          key: cargo-outdated-${{ runner.os }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: cargo-outdated-${{ runner.os }}-
+
+      - name: Install cargo-audit (if not cached)
+        run: command -v cargo-audit || cargo install cargo-audit --locked
+
+      - name: Install cargo-outdated (if not cached)
+        run: command -v cargo-outdated || cargo install cargo-outdated --locked
 
       - name: Run cargo audit (vulnerabilidades conocidas)
         run: cargo audit
 
       - name: Run cargo outdated (dependencias desactualizadas)
-        # --exit-code 0 para no fallar el job si hay updates disponibles;
-        # el reporte sigue apareciendo en el log.
+        # --exit-code 0 para no fallar el job si hay updates disponibles
         run: cargo outdated --workspace --exit-code 0
 
       - name: Resumen del workspace
@@ -56,3 +63,56 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           cargo tree --workspace --depth 1 2>/dev/null >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
+
+  actions-versions:
+    name: Chequeo de versiones de GitHub Actions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verificar versiones de Actions usadas en los workflows
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "## GitHub Actions — Reporte de versiones" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Action | En uso | Última release | Estado |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|--------|----------------|--------|" >> $GITHUB_STEP_SUMMARY
+
+          declare -A seen
+
+          while IFS= read -r uses_line; do
+            action=$(echo "$uses_line" | sed -E 's/.*uses:[[:space:]]*//' | tr -d '"' | tr -d "'" | xargs)
+            [[ -z "$action" || "$action" == ./* ]] && continue
+
+            repo=$(echo "$action" | cut -d'@' -f1)
+            current=$(echo "$action" | cut -d'@' -f2)
+
+            # Deduplicar
+            [[ -n "${seen[$action]+x}" ]] && continue
+            seen[$action]=1
+
+            # Obtener última release via GitHub API
+            latest=$(gh api "repos/$repo/releases/latest" --jq '.tag_name' 2>/dev/null || true)
+
+            # Si no hay release, intentar con tags
+            if [[ -z "$latest" ]]; then
+              latest=$(gh api "repos/$repo/tags" --jq '.[0].name' 2>/dev/null || echo "?")
+            fi
+
+            if [[ "$latest" == "$current" ]]; then
+              status="✅ al día"
+            elif [[ "$latest" == "?" ]]; then
+              status="❓ sin datos"
+            else
+              status="⚠️ actualizar a \`$latest\`"
+            fi
+
+            echo "| \`$repo\` | \`$current\` | \`$latest\` | $status |" >> $GITHUB_STEP_SUMMARY
+          done < <(grep -rh 'uses:' .github/workflows/ | grep -v '#' | sort -u)
+
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "_Ejecutado el $(date '+%Y-%m-%d'). Próxima ejecución automática: 1 de diciembre._" >> $GITHUB_STEP_SUMMARY

@@ -22,17 +22,6 @@ updates:
       - dependency-name: "*"
         update-types: ["version-update:semver-major"]
 
-  # GitHub Actions
-  - package-ecosystem: "github-actions"
-    directory: "/"
-    schedule:
-      interval: "monthly"
-      day: "monday"
-      time: "06:00"
-      timezone: "America/Argentina/Buenos_Aires"
-    open-pull-requests-limit: 5
-    labels:
-      - "dependencies"
-      - "github-actions"
-    commit-message:
-      prefix: "chore(ci)"
+  # GitHub Actions — chequeado manualmente en dep-audit.yml (1 de diciembre)
+  # Dependabot no soporta intervalo anual (mínimo: monthly).
+  # El workflow dep-audit.yml reporta versiones desactualizadas una vez al año.
