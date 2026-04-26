@@ -57,14 +57,6 @@ cargo build -p rmtfar-plugin --target "$TARGET" ${CARGO_FLAGS:-}
 cp "target/$TARGET/$PROFILE/rmtfar_plugin.dll" "arma-mod/@rmtfar/rmtfar_plugin.dll"
 echo "  → arma-mod/@rmtfar/rmtfar_plugin.dll ($(du -sh "arma-mod/@rmtfar/rmtfar_plugin.dll" | cut -f1))"
 
-# ── 3. Bridge (testing Windows) ───────────────────────────────────────────────
-echo ""
-echo "--- Bridge (testing Windows) ---"
-cargo build -p rmtfar-bridge --target "$TARGET" ${CARGO_FLAGS:-}
-
-cp "target/$TARGET/$PROFILE/rmtfar-bridge.exe" "arma-mod/@rmtfar/rmtfar-bridge.exe"
-echo "  → arma-mod/@rmtfar/rmtfar-bridge.exe ($(du -sh "arma-mod/@rmtfar/rmtfar-bridge.exe" | cut -f1))"
-
 # ── Verificar exports ─────────────────────────────────────────────────────────
 echo ""
 echo "=== Verificando exports ==="
@@ -82,7 +74,6 @@ echo "Binarios en arma-mod/@rmtfar/:"
 ls -lh \
     arma-mod/@rmtfar/rmtfar_x64.dll \
     arma-mod/@rmtfar/rmtfar_plugin.dll \
-    arma-mod/@rmtfar/rmtfar-bridge.exe \
     2>/dev/null || true
 echo ""
 echo "Instalar en Windows:"
