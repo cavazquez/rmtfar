@@ -120,13 +120,18 @@
 Formato delimitado (estable, sin JSON en SQF):
 
 ```text
-v1|steam_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch
+v1|steam_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch|radio_los|sr_range_m|lr_range_m
 ```
 
-Ejemplo:
+- `radio_los`: factor 0–1 (1 = sin obstáculos entre el cliente local y ese jugador), con `lineIntersectsSurfaces` y caché.
+- `sr_range_m` / `lr_range_m`: alcance en metros enviado desde Arma (según inventario y `CfgRMTFAR`). `0` o ausencia (payload de 18–19 campos) = usar el valor por defecto del protocolo en Rust.
+
+**Modelos por ítem y facción** (`config.cpp` del addon): `CfgRMTFAR >> RadioItems` define `rangeSR` / `rangeLR` por **classname** de ítem (orden de búsqueda: asignados, armas, chaleco, uniforme, mochila, `items`). Si ningún ítem coincide, se usa la clase `Default`. `CfgRMTFAR >> RadioFactions >> <faction player>>` puede definir `rangeMult` (multiplicador positivo sobre ambos alcances).
+
+Ejemplo (21 campos, LR sin frecuencia en el ejemplo):
 
 ```text
-v1|76561198000000000|Servidor Test|123456|1234.5|567.8|12.3|145.0|1|1||0|1|0|43.0|1||1
+v1|76561198000000000|Servidor Test|123456|1234.5|567.8|12.3|145.0|1|1||0|1|0|43.0|1||1|1|5000|0
 ```
 
 ### 🦀 Extension → Plugin (UDP :9501)
@@ -155,7 +160,8 @@ v1|76561198000000000|Servidor Test|123456|1234.5|567.8|12.3|145.0|1|1||0|1|0|43.
       "tuned_sr_freq": "43.0",
       "tuned_sr_channel": 1,
       "tuned_lr_freq": "",
-      "tuned_lr_channel": 1
+      "tuned_lr_channel": 1,
+      "radio_los_quality": 1.0
     }
   ]
 }

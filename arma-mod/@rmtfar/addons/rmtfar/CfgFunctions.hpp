@@ -10,6 +10,7 @@ class CfgFunctions {
             class escapeJsonString {};
             class setFrequency    {};
             class radioTransmit   {};
+            class resolveRadioModel {};
         };
     };
 };

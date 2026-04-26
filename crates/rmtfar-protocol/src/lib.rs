@@ -91,6 +91,9 @@ pub struct PlayerState {
     pub radio_sr: Option<RadioConfig>,
     /// Long-range radio config (None = no radio equipped).
     pub radio_lr: Option<RadioConfig>,
+    /// Occlusion / line-of-sight factor from the local client toward this player (1.0 = clear).
+    #[serde(default = "default_one_f32")]
+    pub radio_los_quality: f32,
 }
 
 impl PlayerState {
@@ -168,10 +171,17 @@ pub struct PlayerSummary {
     /// Tuned LR channel regardless of PTT.
     #[serde(default = "default_channel")]
     pub tuned_lr_channel: u8,
+    /// Same as [`PlayerState::radio_los_quality`] — used by the plugin for radio DSP.
+    #[serde(default = "default_one_f32")]
+    pub radio_los_quality: f32,
 }
 
 fn default_channel() -> u8 {
     1
+}
+
+fn default_one_f32() -> f32 {
+    1.0
 }
 
 impl PlayerSummary {
@@ -233,6 +243,7 @@ impl PlayerSummary {
             tuned_sr_channel,
             tuned_lr_freq,
             tuned_lr_channel,
+            radio_los_quality: state.radio_los_quality,
         }
     }
 }
@@ -334,6 +345,7 @@ mod tests {
             ptt_radio_lr: false,
             radio_sr: Some(RadioConfig::default()),
             radio_lr: None,
+            radio_los_quality: 1.0,
         }
     }
 
@@ -384,11 +396,13 @@ mod tests {
     fn player_summary_sr_transmit() {
         let mut state = sample_state();
         state.ptt_radio_sr = true;
+        state.radio_los_quality = 0.42;
         let summary = PlayerSummary::from_state(&state);
         assert!(summary.transmitting_radio);
         assert_eq!(summary.radio_type, "sr");
         assert_eq!(summary.radio_freq, "152.000");
         assert!((summary.radio_range_m - RADIO_SR_RANGE_M).abs() < f32::EPSILON);
+        assert!((summary.radio_los_quality - 0.42).abs() < 1e-5);
     }
 
     #[test]

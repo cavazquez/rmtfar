@@ -177,7 +177,8 @@ impl Plugin {
                 tracing::debug!(uid = %sender.steam_id, dist, "out of radio range — muted");
                 return false;
             }
-            let signal_quality = 1.0 - (dist / sender.radio_range_m).clamp(0.0, 1.0);
+            let signal_quality = (1.0 - (dist / sender.radio_range_m).clamp(0.0, 1.0))
+                * sender.radio_los_quality.clamp(0.0, 1.0);
             tracing::debug!(
                 uid = %sender.steam_id,
                 dist,

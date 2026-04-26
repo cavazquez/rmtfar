@@ -70,6 +70,7 @@ mod tests {
                 range_m: None,
             }),
             radio_lr: None,
+            radio_los_quality: 1.0,
         }
     }
 
@@ -140,6 +141,7 @@ mod tests {
                 enabled: true,
                 range_m: None,
             }),
+            radio_los_quality: 1.0,
         }
     }
 

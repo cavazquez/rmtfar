@@ -98,15 +98,47 @@ fn normalize_v1_payload(s: &str) -> Result<String, String> {
     Err("unsupported payload format; expected v1|...".to_string())
 }
 
+fn parse_optional_radio_range_m(raw: &str, label: &str) -> Result<Option<f32>, String> {
+    if raw.is_empty() || raw == "0" {
+        return Ok(None);
+    }
+    let v: f32 = raw
+        .parse()
+        .map_err(|e| format!("v1: {label}: {e}"))?;
+    if v <= 0.0 {
+        Ok(None)
+    } else {
+        Ok(Some(v))
+    }
+}
+
 #[allow(clippy::similar_names)] // Protocol field names are intentionally parallel (sr/lr).
 fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
     let fields = split_escaped_pipe(s);
-    if fields.len() != 18 {
-        return Err(format!("v1: bad field count {}, expected 18", fields.len()));
-    }
-    if fields[0] != "v1" {
+    if fields.is_empty() || fields[0] != "v1" {
         return Err("v1: missing prefix".to_string());
     }
+    let n = fields.len();
+    if !(n == 18 || n == 19 || n == 21) {
+        return Err(format!(
+            "v1: bad field count {n}, expected 18, 19, or 21 (radio_los + optional sr/lr range_m)"
+        ));
+    }
+    let radio_los_quality = match n {
+        18 => 1.0,
+        _ => fields[18]
+            .parse::<f32>()
+            .map_err(|e| format!("v1: radio_los: {e}"))?
+            .clamp(0.0, 1.0),
+    };
+    let (sr_range_m, lr_range_m) = if n >= 21 {
+        (
+            parse_optional_radio_range_m(&fields[19], "sr_range_m")?,
+            parse_optional_radio_range_m(&fields[20], "lr_range_m")?,
+        )
+    } else {
+        (None, None)
+    };
     let steam_id = unescape_pipe_field(&fields[1]);
     let server_id = unescape_pipe_field(&fields[2]);
     let tick = fields[3]
@@ -144,7 +176,7 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
         channel: sr_ch,
         volume: 1.0,
         enabled: true,
-        range_m: None,
+        range_m: sr_range_m,
     });
     let radio_lr = if lr_freq.is_empty() {
         None
@@ -154,7 +186,7 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
             channel: lr_ch,
             volume: 1.0,
             enabled: true,
-            range_m: None,
+            range_m: lr_range_m,
         })
     };
 
@@ -174,6 +206,7 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
         ptt_radio_lr,
         radio_sr,
         radio_lr,
+        radio_los_quality,
     })
 }
 
@@ -352,4 +385,32 @@ unsafe fn write_output(output: *mut c_char, size: c_int, data: &str) {
     let len = bytes.len().min(capacity);
     std::ptr::copy_nonoverlapping(bytes.as_ptr(), output.cast::<u8>(), len);
     *output.add(len) = 0;
+}
+
+#[cfg(test)]
+mod v1_tests {
+    use super::parse_player_state_v1;
+
+    #[test]
+    fn v1_18_fields_defaults_los() {
+        let s = "v1|76561198000000000|srv|1000|0|0|0|0|1|1||0|0|0|152.000|1||1";
+        let p = parse_player_state_v1(s).unwrap();
+        assert!((p.radio_los_quality - 1.0).abs() < f32::EPSILON);
+    }
+
+    #[test]
+    fn v1_19_fields_parses_los() {
+        let s = "v1|76561198000000000|srv|1000|0|0|0|0|1|1||0|0|0|152.000|1||1|0.35";
+        let p = parse_player_state_v1(s).unwrap();
+        assert!((p.radio_los_quality - 0.35).abs() < 1e-5);
+        assert!(p.radio_sr.as_ref().unwrap().range_m.is_none());
+    }
+
+    #[test]
+    fn v1_21_fields_parses_ranges() {
+        let s = "v1|76561198000000000|srv|1000|0|0|0|0|1|1||0|0|0|152.000|1|30.0|1|1|3000|12000";
+        let p = parse_player_state_v1(s).unwrap();
+        assert!((p.radio_sr.as_ref().unwrap().range_m.unwrap() - 3000.0).abs() < 1e-3);
+        assert!((p.radio_lr.as_ref().unwrap().range_m.unwrap() - 12000.0).abs() < 1e-3);
+    }
 }

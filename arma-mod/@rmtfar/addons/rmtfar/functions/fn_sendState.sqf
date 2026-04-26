@@ -18,10 +18,21 @@ private _freqEsc = [_state get "radio_freq"] call RMTFAR_fnc_escapeJsonString;
 private _freqLREsc = [_state get "radio_freq_lr"] call RMTFAR_fnc_escapeJsonString;
 private _tick = floor diag_tickTime;
 
+private _los = 1;
+if (!isNil {_state get "radio_los"}) then {
+    _los = _state get "radio_los";
+};
+
+private _srRm = 0;
+private _lrRm = 0;
+if (!isNil {_state get "radio_sr_range_m"}) then { _srRm = _state get "radio_sr_range_m"; };
+if (!isNil {_state get "radio_lr_range_m"}) then { _lrRm = _state get "radio_lr_range_m"; };
+
 // Formato estable (tipo TFAR, sin JSON):
-// v1|steam_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch
+// ...|radio_los|sr_range_m|lr_range_m  (0 = usar alcance por defecto del protocolo)
+// v1|steam_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch|radio_los|sr_range_m|lr_range_m
 private _payload = format [
-    "v1|%1|%2|%3|%4|%5|%6|%7|%8|%9|%10|%11|%12|%13|%14|%15|%16|%17",
+    "v1|%1|%2|%3|%4|%5|%6|%7|%8|%9|%10|%11|%12|%13|%14|%15|%16|%17|%18|%19|%20",
     _uidEsc,
     _srvEsc,
     _tick,
@@ -38,7 +49,10 @@ private _payload = format [
     _freqEsc,
     _state get "radio_channel",
     _freqLREsc,
-    _state get "radio_channel_lr"
+    _state get "radio_channel_lr",
+    _los,
+    _srRm,
+    _lrRm
 ];
 
 private _ret = "rmtfar" callExtension ["send", [_payload]];

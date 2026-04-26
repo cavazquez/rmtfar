@@ -24,3 +24,29 @@ class Extended_PostInit_EventHandlers {
         init = "call compile preprocessFileLineNumbers '\rmtfar\addons\rmtfar\XEH_postInit.sqf'";
     };
 };
+
+// Modelos de alcance por classname de ítem y multiplicador por facción (ver fn_resolveRadioModel.sqf).
+class CfgRMTFAR {
+    class RadioItems {
+        class Default {
+            rangeSR = 5000;
+            rangeLR = 20000;
+        };
+        // Radio personal Arma 3: SR típico, sin LR de mochila en este ítem.
+        class ItemRadio {
+            rangeSR = 5000;
+            rangeLR = 0;
+        };
+    };
+    class RadioFactions {
+        class BLU_F {
+            rangeMult = 1;
+        };
+        class OPF_F {
+            rangeMult = 1;
+        };
+        class IND_F {
+            rangeMult = 1;
+        };
+    };
+};

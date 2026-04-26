@@ -60,6 +60,7 @@ mod tests {
             ptt_radio_lr: false,
             radio_sr: None,
             radio_lr: None,
+            radio_los_quality: 1.0,
         }
     }
 

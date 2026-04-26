@@ -102,6 +102,7 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
             enabled: !cfg.freq_lr.is_empty(),
             range_m: cfg.radio_range_lr_m,
         }),
+        radio_los_quality: 1.0,
     }
 }
 

@@ -43,6 +43,63 @@ if (_isLocal) then {
     _channelLR  = _unit getVariable ["rmtfar_chLR",       1];
 };
 
+private _srRm = if (_isLocal) then { RMTFAR_radioSrRangeM } else { _unit getVariable ["rmtfar_srRangeM", 0] };
+private _lrRm = if (_isLocal) then { RMTFAR_radioLrRangeM } else { _unit getVariable ["rmtfar_lrRangeM", 0] };
+
+// Oclusión radio (LOS local → esta unidad), 1 = línea clara.
+// Caché ~250 ms; el recálculo se reparte en 8 fases según UID para no hacer N−1 raycasts en un solo frame.
+private _los = 1;
+if (!_isLocal && {_alive} && {!isNull player} && {alive player}) then {
+    private _ck = format ["rmtfar_los_%1", getPlayerUID _unit];
+    private _cached = missionNamespace getVariable [_ck, [1, -1]];
+    private _now = diag_tickTime;
+    private _lastT = _cached select 1;
+    private _fresh = (_lastT >= 0 && {(_now - _lastT) < 0.25});
+    if (_fresh) then {
+        _los = _cached select 0;
+    } else {
+        private _staggerN = 8;
+        private _uid = getPlayerUID _unit;
+        private _h = 0;
+        { _h = _h + _x } forEach (toArray _uid);
+        private _slot = _h mod _staggerN;
+        private _frame = floor (_now * 20);
+        private _tooStale = (_lastT >= 0 && {(_now - _lastT) > 1.0});
+        private _firstEver = (_lastT < 0);
+        private _mayRay = _firstEver || {_tooStale} || {(_frame mod _staggerN) isEqualTo _slot};
+        if (_mayRay) then {
+            _los = 1;
+            private _from = eyePos player;
+            private _to = (getPosASL _unit) vectorAdd [0, 0, 1];
+            private _total = _from distance _to;
+            if (_total > 1) then {
+                private _hits = lineIntersectsSurfaces [_from, _to, player, vehicle player, true, 4, "VIEW", "NONE"];
+                if (count _hits > 0) then {
+                    private _first = _hits select 0;
+                    private _hitPos = _first select 0;
+                    private _hitObj = _first select 2;
+                    private _dHit = _from distance _hitPos;
+                    private _ratio = _dHit / _total;
+                    private _tVeh = vehicle _unit;
+                    if (!isNull _hitObj && {_hitObj isEqualTo _unit || {!isNull _tVeh && {_hitObj isEqualTo _tVeh}}}) then {
+                        _los = 1;
+                    } else {
+                        if (_ratio < 0.98) then {
+                            private _sq = _ratio * _ratio;
+                            _los = ((0.15 + 0.85 * _sq) min 1) max 0.05;
+                        };
+                    };
+                };
+            };
+            missionNamespace setVariable [_ck, [_los, _now]];
+        } else {
+            if (_lastT >= 0) then {
+                _los = _cached select 0;
+            };
+        };
+    };
+};
+
 createHashMapFromArray [
     ["uid",            getPlayerUID _unit],
     ["pos",            _pos],
@@ -56,5 +113,8 @@ createHashMapFromArray [
     ["radio_freq",     _freq],
     ["radio_channel",  _channel],
     ["radio_freq_lr",  _freqLR],
-    ["radio_channel_lr", _channelLR]
+    ["radio_channel_lr", _channelLR],
+    ["radio_los", _los],
+    ["radio_sr_range_m", _srRm],
+    ["radio_lr_range_m", _lrRm]
 ]

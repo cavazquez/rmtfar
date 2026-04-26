@@ -91,6 +91,7 @@ fn make_state(id: &str, pos: [f32; 3], ptt_sr: bool) -> PlayerState {
             range_m: None,
         }),
         radio_lr: None,
+        radio_los_quality: 1.0,
     }
 }
 

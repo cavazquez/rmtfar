@@ -41,6 +41,7 @@ fn local_player(tuned_sr_freq: &str, tuned_sr_channel: u8) -> PlayerSummary {
         tuned_sr_channel,
         tuned_lr_freq: String::new(),
         tuned_lr_channel: 1,
+        radio_los_quality: 1.0,
     }
 }
 
@@ -73,6 +74,7 @@ fn sender_sr(
         tuned_sr_channel: channel,
         tuned_lr_freq: String::new(),
         tuned_lr_channel: 1,
+        radio_los_quality: 1.0,
     }
 }
 
@@ -95,6 +97,7 @@ fn sender_local(pos: [f32; 3], transmitting: bool) -> PlayerSummary {
         tuned_sr_channel: 1,
         tuned_lr_freq: String::new(),
         tuned_lr_channel: 1,
+        radio_los_quality: 1.0,
     }
 }
 

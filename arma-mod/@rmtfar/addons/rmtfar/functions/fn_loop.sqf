@@ -4,6 +4,7 @@
 
 while {RMTFAR_enabled} do {
     if (!isNull player && {alive player}) then {
+        [] call RMTFAR_fnc_resolveRadioModel;
         // Broadcast local player's radio state so other clients can read it
         player setVariable ["rmtfar_pttLocal",   RMTFAR_pttLocal,      true];
         player setVariable ["rmtfar_pttRadioSR", RMTFAR_pttRadioSR,    true];
@@ -12,6 +13,8 @@ while {RMTFAR_enabled} do {
         player setVariable ["rmtfar_ch",         RMTFAR_radioChannel,  true];
         player setVariable ["rmtfar_freqLR",     RMTFAR_radioFreqLR,   true];
         player setVariable ["rmtfar_chLR",       RMTFAR_radioChannelLR, true];
+        player setVariable ["rmtfar_srRangeM",   RMTFAR_radioSrRangeM, true];
+        player setVariable ["rmtfar_lrRangeM",   RMTFAR_radioLrRangeM, true];
 
         // Send state for every player to the extension
         {
