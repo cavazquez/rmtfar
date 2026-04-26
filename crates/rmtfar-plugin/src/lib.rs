@@ -7,8 +7,12 @@
 //! - Phase 1: proximity muting only (positional handled by Mumble Link)
 //! - Phase 2+: frequency matching, radio DSP effects
 //!
-//! The plugin receives [`RadioStateMessage`] from the bridge over UDP :9501
+//! The plugin receives [`RadioStateMessage`] from the Arma extension (or bridge) over UDP :9501
 //! and uses that to decide mute/volume per user.
+//!
+//! Every UDP datagram is optionally appended to a log file (see `start()`): by default
+//! `{TEMP}/rmtfar-plugin-udp.log` — disable with env `RMTFAR_UDP_LOG=0`, override path with
+//! `RMTFAR_UDP_LOG_PATH`.
 
 pub mod audio;
 pub mod dsp;
@@ -20,15 +24,26 @@ mod tests;
 
 use rmtfar_protocol::{distance, RadioStateMessage, LOCAL_VOICE_RANGE_M, PLUGIN_RECV_PORT};
 use state::PluginState;
+use std::fs::{File, OpenOptions};
+use std::io::{BufWriter, Write};
 use std::net::UdpSocket;
+use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 // ---------------------------------------------------------------------------
 // Global plugin singleton
 // ---------------------------------------------------------------------------
 
 static PLUGIN: OnceLock<Mutex<Plugin>> = OnceLock::new();
+
+/// Log fijo de todo el tráfico UDP :9501 (UTF-8 lossy). Windows: `%TEMP%\\rmtfar-plugin-udp.log`.
+fn udp_recv_log_path() -> PathBuf {
+    std::env::var("RMTFAR_UDP_LOG_PATH").map_or_else(
+        |_| std::env::temp_dir().join("rmtfar-plugin-udp.log"),
+        PathBuf::from,
+    )
+}
 
 fn plugin() -> std::sync::MutexGuard<'static, Plugin> {
     PLUGIN
@@ -41,6 +56,8 @@ pub(crate) struct Plugin {
     pub(crate) state: PluginState,
     socket: Option<UdpSocket>,
     buf: Vec<u8>,
+    /// Cada datagrama recibido en :9501 (una línea por paquete). `None` si `RMTFAR_UDP_LOG=0`.
+    udp_recv_log: Option<BufWriter<File>>,
     /// Throttle `tracing::info!` for each UDP `radio_state` (high rate from Arma).
     last_udp_info_log: Option<Instant>,
 }
@@ -51,6 +68,7 @@ impl Plugin {
             state: PluginState::default(),
             socket: None,
             buf: vec![0u8; 65535],
+            udp_recv_log: None,
             last_udp_info_log: None,
         }
     }
@@ -68,6 +86,40 @@ impl Plugin {
             .with_writer(std::io::stderr)
             .try_init();
 
+        let log_enabled = std::env::var("RMTFAR_UDP_LOG")
+            .map(|v| v != "0" && !v.eq_ignore_ascii_case("false"))
+            .unwrap_or(true);
+
+        if log_enabled {
+            let path = udp_recv_log_path();
+            match OpenOptions::new().create(true).append(true).open(&path) {
+                Ok(f) => {
+                    let mut w = BufWriter::new(f);
+                    let ms = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .map(|d| d.as_millis())
+                        .unwrap_or(0);
+                    let _ = writeln!(
+                        w,
+                        "[{ms}] --- RMTFAR UDP log start (every datagram on :{PLUGIN_RECV_PORT}) ---"
+                    );
+                    let _ = w.flush();
+                    self.udp_recv_log = Some(w);
+                    tracing::info!(
+                        path = %path.display(),
+                        "RMTFAR plugin UDP recv log (set RMTFAR_UDP_LOG=0 to disable)"
+                    );
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        path = %path.display(),
+                        error = %e,
+                        "RMTFAR plugin: could not open UDP recv log file"
+                    );
+                }
+            }
+        }
+
         match UdpSocket::bind(format!("127.0.0.1:{PLUGIN_RECV_PORT}")) {
             Ok(sock) => {
                 sock.set_nonblocking(true).ok();
@@ -83,7 +135,24 @@ impl Plugin {
     }
 
     pub(crate) fn stop(&mut self) {
+        if let Some(mut w) = self.udp_recv_log.take() {
+            let _ = w.flush();
+        }
         self.socket = None;
+    }
+
+    fn append_udp_recv_log(&mut self, len: usize) {
+        let Some(ref mut w) = self.udp_recv_log else {
+            return;
+        };
+        let ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let chunk = &self.buf[..len];
+        let text = String::from_utf8_lossy(chunk);
+        let _ = writeln!(w, "[{ms}] bytes={len} {text}");
+        let _ = w.flush();
     }
 
     fn log_radio_state_throttled(&mut self, msg: &RadioStateMessage) {
@@ -138,9 +207,23 @@ impl Plugin {
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
                 Err(_) => break,
             };
-            if let Ok(msg) = serde_json::from_slice::<RadioStateMessage>(&self.buf[..len]) {
-                self.log_radio_state_throttled(&msg);
-                self.state.update(msg);
+            self.append_udp_recv_log(len);
+            match serde_json::from_slice::<RadioStateMessage>(&self.buf[..len]) {
+                Ok(msg) => {
+                    self.log_radio_state_throttled(&msg);
+                    self.state.update(msg);
+                }
+                Err(e) => {
+                    if let Some(ref mut w) = self.udp_recv_log {
+                        let ms = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .map(|d| d.as_millis())
+                            .unwrap_or(0);
+                        let _ = writeln!(w, "[{ms}] PARSE_ERR {e}");
+                        let _ = w.flush();
+                    }
+                    tracing::debug!(error = %e, bytes = len, "UDP payload not RadioStateMessage JSON");
+                }
             }
         }
     }

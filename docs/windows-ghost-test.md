@@ -39,7 +39,8 @@ Los atajos se reconfiguran en *Arma 3 → Configuración → Controles → Mods 
 | Dónde | Qué mirar |
 |-------|-----------|
 | **RPT de Arma** (`*.rpt`) | `RMTFAR DEBUG: ghost send ...` ~1/s por ghost mientras DEBUG está ON. |
-| **Plugin** | `tracing::info!` ~cada 0,9 s con resumen de `radio_state` (no imprime los 20 Hz completos). |
+| **Plugin (archivo fijo)** | Cada datagrama UDP :9501 se anexa en **`%TEMP%\rmtfar-plugin-udp.log`** (Windows) o `$TMPDIR/rmtfar-plugin-udp.log` / `/tmp/...` según el SO. Una línea por paquete: milisegundos desde epoch, tamaño en bytes y el JSON en texto (UTF-8 lossy). Si el JSON no parsea, una segunda línea `PARSE_ERR ...`. Desactivar: variable de entorno **`RMTFAR_UDP_LOG=0`** antes de abrir Mumble. Ruta alternativa: **`RMTFAR_UDP_LOG_PATH=C:\ruta\mi-udp.log`**. |
+| **Plugin (stderr)** | `tracing::info!` ~cada 0,9 s con resumen (si tenés consola adjunta a Mumble). |
 
 ## Dónde cambiar los atajos en Arma 3
 
