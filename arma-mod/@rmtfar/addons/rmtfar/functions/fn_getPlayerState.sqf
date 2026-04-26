@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 // fn_getPlayerState.sqf - Recolecta estado de una unidad.
-// Para el jugador local usa las variables locales; para remotos lee publicVariable.
+// Para el jugador local usa las variables globales; para remotos lee publicVariable.
 // params: [_unit]
 
 params ["_unit"];
@@ -26,8 +26,8 @@ private _freqLR     = "";
 private _channelLR  = 1;
 
 if (_isLocal) then {
-    _pttLocal   = (GetKeyState RMTFAR_keyPttLocal)   > 0;
-    _pttRadioSR = (GetKeyState RMTFAR_keyPttRadioSR) > 0;
+    _pttLocal   = RMTFAR_pttLocal;
+    _pttRadioSR = RMTFAR_pttRadioSR;
     _pttRadioLR = RMTFAR_pttRadioLR;
     _freq       = RMTFAR_radioFreq;
     _channel    = RMTFAR_radioChannel;

@@ -13,10 +13,6 @@ while {RMTFAR_enabled} do {
         player setVariable ["rmtfar_freqLR",     RMTFAR_radioFreqLR,   true];
         player setVariable ["rmtfar_chLR",       RMTFAR_radioChannelLR, true];
 
-        // Read local PTT keys
-        RMTFAR_pttLocal   = (GetKeyState RMTFAR_keyPttLocal)   > 0;
-        RMTFAR_pttRadioSR = (GetKeyState RMTFAR_keyPttRadioSR) > 0;
-
         // Send state for every player to the extension
         {
             private _state = [_x] call RMTFAR_fnc_getPlayerState;
