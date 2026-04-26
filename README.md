@@ -99,7 +99,7 @@
 | **Vehículo** — PTT local bloqueado, radio sigue funcionando | ✅ | log: `in vehicle, no radio PTT — muted` |
 | Mute correcto (zerear buffer, return true) | ✅ | fix API Mumble |
 | **Tests de integración en CI** — 60 tests automatizados | ✅ | unit + integración bridge (subprocess UDP) |
-| Extension DLL para Arma 3 | ⚠️ | Solo Windows (cross-compile pendiente) |
+| **Extension DLL para Arma 3** — cross-compile Windows x64 | ✅ | `x86_64-pc-windows-gnu`, artefacto en CI |
 
 ### 🗺️ Fases de desarrollo
 
@@ -108,6 +108,7 @@
 | **1** | Voz por proximidad (posición 3D, atenuación por distancia) | ✅ |
 | **2** | Radio simple (frecuencia, canal, rango, PTT, efecto DSP, muerte) | ✅ |
 | **3** | Lógica tipo TFAR (SR/LR, potencia, interferencia, vehículos) | ✅ |
+| **4** | Extension DLL Windows (cross-compile desde Linux, CI artifact) | ✅ |
 
 ---
 
@@ -228,6 +229,54 @@ rmtfar/
 |---|---|---|
 | [Mumble](https://www.mumble.info/) | 1.5+ | probado en **1.5.735** ✅ |
 | [Murmur](https://www.mumble.info/documentation/mumble-server/) | Cualquier reciente | — |
+
+---
+
+## 🪟 Compilar la DLL para Arma 3 (Windows x64)
+
+Arma 3 carga extensiones como `rmtfar_x64.dll` vía `callExtension`. Se compila desde Linux con `mingw-w64`.
+
+### Requisitos (una sola vez)
+
+```bash
+sudo apt install mingw-w64
+rustup target add x86_64-pc-windows-gnu
+```
+
+### Compilar
+
+```bash
+# Debug (más rápido, para desarrollo)
+./scripts/build-extension.sh
+
+# Release (para distribución)
+RELEASE=1 ./scripts/build-extension.sh
+```
+
+La DLL queda en `arma-mod/@rmtfar/rmtfar_x64.dll`, lista para copiar al directorio del mod en Windows.
+
+### Verificar símbolos exportados
+
+```bash
+x86_64-w64-mingw32-nm --demangle arma-mod/@rmtfar/rmtfar_x64.dll | grep RVExtension
+# Salida esperada:
+# 0000000180001000 T RVExtension
+# 0000000180001080 T RVExtensionArgs
+# 0000000180001160 T RVExtensionVersion
+```
+
+### Uso desde SQF
+
+```sqf
+// Verificar versión de la extension
+private _ver = "rmtfar" callExtension "version";
+systemChat format ["RMTFAR version: %1", _ver];
+
+// Enviar estado del jugador al bridge (JSON serializado)
+private _result = "rmtfar" callExtension ["send", [_jsonState]];
+```
+
+> **CI**: La DLL se compila automáticamente en cada push y queda disponible como artefacto en GitHub Actions (`rmtfar-extension-windows-x64`).
 
 ---
 

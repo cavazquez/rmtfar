@@ -274,7 +274,9 @@ mod tests {
         apply_radio_effect(&mut fragile, 48_000, 0.05);
 
         let zero_chunks = |buf: &[f32]| -> usize {
-            buf.chunks(96).filter(|c| c.iter().all(|&s| s == 0.0)).count()
+            buf.chunks(96)
+                .filter(|c| c.iter().all(|&s| s == 0.0))
+                .count()
         };
 
         assert!(

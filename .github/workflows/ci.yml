@@ -101,6 +101,56 @@ jobs:
           path: target/release/librmtfar_plugin.so
           retention-days: 7
 
+  build-extension-windows:
+    name: Build extension DLL (Windows x64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable + Windows target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: Install mingw-w64
+        run: sudo apt-get install -y mingw-w64
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-ext-win-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-ext-win-
+
+      - name: Compilar extension DLL (release)
+        run: cargo build --release -p rmtfar-extension --target x86_64-pc-windows-gnu
+
+      - name: Verificar símbolos exportados (RVExtension*)
+        run: |
+          DLL=target/x86_64-pc-windows-gnu/release/rmtfar.dll
+          echo "=== Tamaño ==="
+          ls -lh "$DLL"
+          echo "=== Símbolos RVExtension exportados ==="
+          x86_64-w64-mingw32-nm --demangle "$DLL" | grep -E 'RVExtension'
+
+      - name: Renombrar a rmtfar_x64.dll
+        run: cp target/x86_64-pc-windows-gnu/release/rmtfar.dll rmtfar_x64.dll
+
+      - name: Upload extension artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rmtfar-extension-windows-x64
+          path: rmtfar_x64.dll
+          retention-days: 30
+
   build-bridge-linux:
     name: Build bridge (Linux)
     runs-on: ubuntu-latest
