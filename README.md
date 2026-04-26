@@ -100,6 +100,7 @@
 | Mute correcto (zerear buffer, return true) | ✅ | fix API Mumble |
 | **Tests de integración en CI** — 60 tests automatizados | ✅ | unit + integración bridge (subprocess UDP) |
 | **Extension DLL para Arma 3** — cross-compile Windows x64 | ✅ | `x86_64-pc-windows-gnu`, artefacto en CI |
+| **Plugin Mumble para Windows** — `rmtfar_plugin.dll` | ✅ | 18 exports Mumble, 2 MB release, artefacto en CI |
 
 ### 🗺️ Fases de desarrollo
 
@@ -108,7 +109,7 @@
 | **1** | Voz por proximidad (posición 3D, atenuación por distancia) | ✅ |
 | **2** | Radio simple (frecuencia, canal, rango, PTT, efecto DSP, muerte) | ✅ |
 | **3** | Lógica tipo TFAR (SR/LR, potencia, interferencia, vehículos) | ✅ |
-| **4** | Extension DLL Windows (cross-compile desde Linux, CI artifact) | ✅ |
+| **4** | Extension DLL + Plugin Mumble Windows (cross-compile desde Linux, CI artifacts) | ✅ |
 
 ---
 
@@ -229,6 +230,42 @@ rmtfar/
 |---|---|---|
 | [Mumble](https://www.mumble.info/) | 1.5+ | probado en **1.5.735** ✅ |
 | [Murmur](https://www.mumble.info/documentation/mumble-server/) | Cualquier reciente | — |
+
+---
+
+## 🪟 Windows — Plugin de Mumble y Extension DLL
+
+Tanto el plugin de Mumble como la extension de Arma 3 se cross-compilan desde Linux con `mingw-w64`.
+
+### Requisitos (una sola vez)
+
+```bash
+sudo apt install mingw-w64
+rustup target add x86_64-pc-windows-gnu
+```
+
+### Plugin de Mumble (`rmtfar_plugin.dll`)
+
+```bash
+# Debug
+TARGET=windows ./scripts/build-plugin.sh
+
+# Release
+TARGET=windows RELEASE=1 ./scripts/build-plugin.sh
+```
+
+La DLL queda en `arma-mod/@rmtfar/rmtfar_plugin.dll`.  
+Copiar en el PC con Windows a: `%APPDATA%\Mumble\Plugins\rmtfar_plugin.dll`
+
+Mumble detecta el plugin automáticamente al iniciar. Verificar en *Mumble → Configuración → Plugins*.
+
+### Verificar exports del plugin
+
+```bash
+x86_64-w64-mingw32-objdump -p arma-mod/@rmtfar/rmtfar_plugin.dll | grep mumble_
+# Salida esperada (18 exports):
+#   mumble_init  mumble_onAudioSourceFetched  mumble_getFeatures  ...
+```
 
 ---
 

@@ -101,6 +101,58 @@ jobs:
           path: target/release/librmtfar_plugin.so
           retention-days: 7
 
+  build-plugin-windows:
+    name: Build plugin (.dll Windows x64)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: check
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Rust (stable + Windows target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-gnu
+
+      - name: Install mingw-w64
+        run: sudo apt-get install -y mingw-w64
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target/
+          key: ${{ runner.os }}-cargo-plugin-win-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-plugin-win-
+
+      - name: Compilar plugin (release)
+        run: cargo build --release -p rmtfar-plugin --target x86_64-pc-windows-gnu
+
+      - name: Verificar exports Mumble en la DLL
+        run: |
+          DLL=target/x86_64-pc-windows-gnu/release/rmtfar_plugin.dll
+          echo "=== Tamaño ==="
+          ls -lh "$DLL"
+          echo "=== Exports Mumble ==="
+          x86_64-w64-mingw32-objdump -p "$DLL" | grep -E "mumble_"
+          # Verificar exports mínimos requeridos
+          x86_64-w64-mingw32-objdump -p "$DLL" | grep -q "mumble_init"
+          x86_64-w64-mingw32-objdump -p "$DLL" | grep -q "mumble_onAudioSourceFetched"
+          x86_64-w64-mingw32-objdump -p "$DLL" | grep -q "mumble_getFeatures"
+          echo "=== Todos los exports requeridos presentes ==="
+
+      - name: Upload plugin artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rmtfar-plugin-windows-x64
+          path: target/x86_64-pc-windows-gnu/release/rmtfar_plugin.dll
+          retention-days: 30
+
   build-extension-windows:
     name: Build extension DLL (Windows x64)
     runs-on: ubuntu-latest
