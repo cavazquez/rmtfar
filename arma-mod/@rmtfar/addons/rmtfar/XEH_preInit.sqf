@@ -2,6 +2,10 @@
 // XEH_preInit.sqf - Ejecutado antes de que la misión cargue (máquina local)
 
 RMTFAR_enabled = false;
+
+// Consola de depuración: missionNamespace setVariable ["RMTFAR_logSends", true];
+// → RPT cada ~2 s con PTT local y retorno de callExtension.
+missionNamespace setVariable ["RMTFAR_logSends", false];
 RMTFAR_radioFreq = "152.000";
 RMTFAR_radioChannel = 1;
 RMTFAR_radioFreqLR = "";

@@ -47,4 +47,17 @@ private _json = format [
     _radioLR
 ];
 
-"rmtfar" callExtension ["send", [_json]];
+private _ret = "rmtfar" callExtension ["send", [_json]];
+
+if (missionNamespace getVariable ["RMTFAR_logSends", false]) then {
+    private _uid = _state get "uid";
+    private _anyPtt = (_state get "ptt_local") || {_state get "ptt_radio_sr"} || {_state get "ptt_radio_lr"};
+    if (_uid isEqualTo getPlayerUID player && _anyPtt) then {
+        private _t = diag_tickTime;
+        private _last = missionNamespace getVariable ["RMTFAR_lastSendLog", 0];
+        if (_t - _last >= 2) then {
+            missionNamespace setVariable ["RMTFAR_lastSendLog", _t];
+            diag_log format ["RMTFAR: send local PTT callExtension=%1 bytes=%2", _ret, count _json];
+        };
+    };
+};
