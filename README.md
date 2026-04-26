@@ -234,20 +234,17 @@ rmtfar/
 
 ---
 
-## 🪟 Cross-compilación para Windows (MSVC desde Linux)
+## 🪟 Cross-compilación para Windows (mingw-w64 desde Linux)
 
 Todos los binarios de Windows se cross-compilan desde Linux usando
-[`cargo-xwin`](https://github.com/rust-cross/cargo-xwin), que descarga el
-CRT de Microsoft y produce binarios MSVC nativos. Esto evita los problemas de
-inicialización que tiene `mingw-w64` al cargar DLLs en Arma 3
-(`ERROR_NO_SYSTEM_RESOURCES`).
+`x86_64-pc-windows-gnu` (mingw-w64). Es el mismo toolchain que usa el CI.
 
 ### Requisitos (una sola vez)
 
 ```bash
-cargo install cargo-xwin
+sudo apt install mingw-w64
+rustup target add x86_64-pc-windows-gnu
 cargo install armake2
-rustup target add x86_64-pc-windows-msvc
 ```
 
 ### Compilar todo
@@ -301,16 +298,7 @@ systemChat format ["RMTFAR version: %1", _ver];
 private _result = "rmtfar" callExtension ["send", [_payloadV1]];
 ```
 
-### Por qué cargo-xwin y no mingw-w64
-
-La cross-compilación con `x86_64-pc-windows-gnu` (mingw) produce DLLs que
-Arma 3 rechaza con error 1450 ("Recursos insuficientes en el sistema").
-Esto ocurre porque el CRT de mingw tiene problemas de inicialización de
-Thread Local Storage (TLS) al cargarse dentro del proceso de Arma 3.
-`cargo-xwin` produce binarios idénticos a los compilados con Visual Studio
-en Windows, sin este problema.
-
-> **CI**: Los checks de CI compilan con GNU/mingw para verificación rápida. Los artefactos de **release** (tags `v*`) se compilan con `cargo-xwin` / MSVC y quedan adjuntos al GitHub Release como archivos listos para usar.
+> **CI y releases**: todos los binarios de Windows (CI + GitHub Releases) se compilan con `x86_64-pc-windows-gnu` (mingw-w64). Las DLLs funcionan correctamente en Arma 3 **con BattlEye desactivado** (ver advertencia abajo).
 
 ---
 

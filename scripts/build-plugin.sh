@@ -2,6 +2,8 @@
 # SPDX-License-Identifier: GPL-3.0
 # build-plugin.sh — Compila el plugin de Mumble para Linux (.so) y/o Windows (.dll).
 #
+# Usa x86_64-pc-windows-gnu (mingw-w64) para Windows, el mismo toolchain que CI.
+#
 # Uso:
 #   ./scripts/build-plugin.sh              # Linux debug
 #   RELEASE=1 ./scripts/build-plugin.sh   # Linux release
@@ -20,23 +22,18 @@ CARGO_FLAGS="${RELEASE:+--release}"
 
 case "${TARGET:-linux}" in
   windows)
-    RUST_TARGET="x86_64-pc-windows-msvc"
+    RUST_TARGET="x86_64-pc-windows-gnu"
     OUT_FILE="rmtfar_plugin.dll"
     DEST_DIR="arma-mod/@rmtfar"
     INSTALL_PATH="%APPDATA%\\Mumble\\Plugins\\rmtfar_plugin.dll"
 
-    if ! command -v cargo-xwin &>/dev/null; then
-      echo "ERROR: cargo-xwin no encontrado."
-      echo "  Instalar con: cargo install cargo-xwin"
-      exit 1
-    fi
     if ! rustup target list --installed | grep -q "$RUST_TARGET"; then
       echo "Instalando Rust target $RUST_TARGET..."
       rustup target add "$RUST_TARGET"
     fi
 
     echo "=== Build Plugin Mumble para Windows ($RUST_TARGET, $PROFILE) ==="
-    cargo xwin build -p rmtfar-plugin --target "$RUST_TARGET" ${CARGO_FLAGS:-}
+    cargo build -p rmtfar-plugin --target "$RUST_TARGET" ${CARGO_FLAGS:-}
 
     SRC="target/$RUST_TARGET/$PROFILE/$OUT_FILE"
     cp "$SRC" "$DEST_DIR/$OUT_FILE"
