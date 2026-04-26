@@ -1,0 +1,30 @@
+[package]
+name = "rmtfar-bridge"
+description = "Local bridge: receives player state via UDP and writes MumbleLink shared memory"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[[bin]]
+name = "rmtfar-bridge"
+path = "src/main.rs"
+
+[dependencies]
+rmtfar-protocol.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+clap.workspace = true
+
+[target.'cfg(target_os = "linux")'.dependencies]
+libc = "0.2"
+
+[target.'cfg(windows)'.dependencies]
+windows = { version = "0.58", features = [
+    "Win32_System_Memory",
+    "Win32_Foundation",
+] }

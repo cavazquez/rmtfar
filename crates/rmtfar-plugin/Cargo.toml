@@ -1,0 +1,16 @@
+[package]
+name = "rmtfar-plugin"
+description = "Mumble client plugin for RMTFAR positional audio and radio effects"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "rmtfar_plugin"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+rmtfar-protocol.workspace = true
+serde.workspace = true
+serde_json.workspace = true
