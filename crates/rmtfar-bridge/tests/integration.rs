@@ -19,15 +19,24 @@ use std::{
 // Helpers
 // ---------------------------------------------------------------------------
 
-/// Bind to :0 and return the OS-assigned port, then drop the socket so the
-/// bridge can bind to it.  There is an inherent TOCTOU window, but it is
-/// acceptable for tests running on localhost.
+/// Bind to :0, get the OS-assigned port, then drop immediately so the bridge
+/// can bind to it.  Used only for the bridge's *receive* port where we cannot
+/// keep the socket alive (the bridge itself needs to bind it).
 fn free_port() -> u16 {
     UdpSocket::bind("127.0.0.1:0")
         .unwrap()
         .local_addr()
         .unwrap()
         .port()
+}
+
+/// Bind a UDP socket to :0 and return it together with the assigned port.
+/// Keeps the socket alive so the port is reserved — no TOCTOU race.
+/// Use this for the *plugin* socket that the test itself owns.
+fn bound_socket() -> (UdpSocket, u16) {
+    let sock = UdpSocket::bind("127.0.0.1:0").unwrap();
+    let port = sock.local_addr().unwrap().port();
+    (sock, port)
 }
 
 struct BridgeProcess(Child);
@@ -133,10 +142,7 @@ fn poll_for_response(
 #[test]
 fn bridge_echoes_radio_state_message() {
     let bridge_recv = free_port();
-    let plugin_port = free_port();
-
-    // Bind plugin socket BEFORE spawning the bridge so we don't miss packets.
-    let plugin_sock = UdpSocket::bind(format!("127.0.0.1:{plugin_port}")).unwrap();
+    let (plugin_sock, plugin_port) = bound_socket();
     let sender_sock = UdpSocket::bind("127.0.0.1:0").unwrap();
 
     let _bridge = spawn_bridge(bridge_recv, plugin_port, Some("p1"));
@@ -168,9 +174,7 @@ fn bridge_echoes_radio_state_message() {
 #[test]
 fn bridge_tracks_multiple_players() {
     let bridge_recv = free_port();
-    let plugin_port = free_port();
-
-    let plugin_sock = UdpSocket::bind(format!("127.0.0.1:{plugin_port}")).unwrap();
+    let (plugin_sock, plugin_port) = bound_socket();
     let sender_sock = UdpSocket::bind("127.0.0.1:0").unwrap();
 
     let _bridge = spawn_bridge(bridge_recv, plugin_port, Some("p1"));
@@ -219,9 +223,7 @@ fn bridge_tracks_multiple_players() {
 #[test]
 fn bridge_reflects_dead_player() {
     let bridge_recv = free_port();
-    let plugin_port = free_port();
-
-    let plugin_sock = UdpSocket::bind(format!("127.0.0.1:{plugin_port}")).unwrap();
+    let (plugin_sock, plugin_port) = bound_socket();
     let sender_sock = UdpSocket::bind("127.0.0.1:0").unwrap();
 
     let _bridge = spawn_bridge(bridge_recv, plugin_port, Some("p1"));
@@ -248,9 +250,7 @@ fn bridge_reflects_dead_player() {
 #[test]
 fn bridge_vehicle_blocks_local_ptt() {
     let bridge_recv = free_port();
-    let plugin_port = free_port();
-
-    let plugin_sock = UdpSocket::bind(format!("127.0.0.1:{plugin_port}")).unwrap();
+    let (plugin_sock, plugin_port) = bound_socket();
     let sender_sock = UdpSocket::bind("127.0.0.1:0").unwrap();
 
     let _bridge = spawn_bridge(bridge_recv, plugin_port, Some("p1"));
@@ -280,9 +280,7 @@ fn bridge_vehicle_blocks_local_ptt() {
 #[test]
 fn bridge_lr_radio_state() {
     let bridge_recv = free_port();
-    let plugin_port = free_port();
-
-    let plugin_sock = UdpSocket::bind(format!("127.0.0.1:{plugin_port}")).unwrap();
+    let (plugin_sock, plugin_port) = bound_socket();
     let sender_sock = UdpSocket::bind("127.0.0.1:0").unwrap();
 
     let _bridge = spawn_bridge(bridge_recv, plugin_port, Some("p1"));
