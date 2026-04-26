@@ -85,6 +85,7 @@ XML
 cp "$SO" "$TMPDIR_PKG/librmtfar_plugin.so"
 
 PKG="target/$PROFILE/rmtfar_plugin.mumble_plugin"
+rm -f "$PKG"   # puede existir como .so raw si se usó install-plugin.sh antes
 (cd "$TMPDIR_PKG" && zip -j "$REPO_ROOT/$PKG" manifest.xml librmtfar_plugin.so)
 
 echo "  $(realpath "$PKG")"
