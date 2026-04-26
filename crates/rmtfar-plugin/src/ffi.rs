@@ -5,6 +5,7 @@
 use crate::plugin;
 use std::ffi::{c_char, c_void};
 use std::os::raw::c_int;
+use std::sync::OnceLock;
 
 pub type mumble_plugin_id_t = u32;
 pub type mumble_userid_t = u32;
@@ -30,6 +31,59 @@ pub struct MumbleStringWrapper {
 }
 
 // ---------------------------------------------------------------------------
+// Minimal MumbleAPI struct — only the first 5 function pointers matter here.
+// Layout must exactly match Mumble's MumbleAPI_v10 / MumbleAPI_v12 structs
+// (all function pointers are pointer-sized; layout is identical across API
+// versions because PARAM_v1_2 only changes signatures, not field count).
+// ---------------------------------------------------------------------------
+
+type MumbleFnFreeMemory =
+    unsafe extern "C" fn(caller_id: mumble_plugin_id_t, ptr: *const c_void) -> mumble_error_t;
+
+type MumbleFnGetUserName = unsafe extern "C" fn(
+    caller_id: mumble_plugin_id_t,
+    connection: mumble_connection_t,
+    user_id: mumble_userid_t,
+    user_name: *mut *const c_char,
+) -> mumble_error_t;
+
+/// Opaque placeholder for function pointers we don't call.
+type OpaqueFnPtr = *const ();
+
+/// Subset of `MumbleAPI_v10_x0` — only the fields we actually call.
+/// Fields 0–4 must be in the exact order from MumblePlugin.h:
+///   0: freeMemory
+///   1: getActiveServerConnection
+///   2: isConnectionSynchronized
+///   3: getLocalUserID
+///   4: getUserName
+#[repr(C)]
+struct MumbleAPI {
+    free_memory: MumbleFnFreeMemory,            // index 0
+    _get_active_server_connection: OpaqueFnPtr, // index 1
+    _is_connection_synchronized: OpaqueFnPtr,   // index 2
+    _get_local_user_id: OpaqueFnPtr,            // index 3
+    get_user_name: MumbleFnGetUserName,         // index 4
+}
+
+// ---------------------------------------------------------------------------
+// Globals: Mumble API pointer and our own plugin ID
+// ---------------------------------------------------------------------------
+
+static MUMBLE_API: OnceLock<usize> = OnceLock::new(); // raw ptr stored as usize
+static PLUGIN_ID: OnceLock<mumble_plugin_id_t> = OnceLock::new();
+
+fn api() -> Option<&'static MumbleAPI> {
+    let addr = MUMBLE_API.get()?;
+    // Safety: Mumble guarantees the API struct outlives the plugin.
+    Some(unsafe { &*(*addr as *const MumbleAPI) })
+}
+
+fn plugin_id() -> mumble_plugin_id_t {
+    *PLUGIN_ID.get().unwrap_or(&0)
+}
+
+// ---------------------------------------------------------------------------
 // Required exports
 // ---------------------------------------------------------------------------
 
@@ -37,7 +91,8 @@ pub struct MumbleStringWrapper {
 /// Signature: `mumble_error_t mumble_init(mumble_plugin_id_t id)`
 /// Called by Mumble with just the assigned plugin ID — no extra args.
 #[no_mangle]
-pub unsafe extern "C" fn mumble_init(_id: mumble_plugin_id_t) -> mumble_error_t {
+pub unsafe extern "C" fn mumble_init(id: mumble_plugin_id_t) -> mumble_error_t {
+    let _ = PLUGIN_ID.set(id);
     if plugin().start() {
         MUMBLE_STATUS_OK
     } else {
@@ -107,9 +162,15 @@ pub unsafe extern "C" fn mumble_getDescription() -> MumbleStringWrapper {
     }
 }
 
+/// Stores the Mumble API function-pointer table for later use.
+///
 /// # Safety
 #[no_mangle]
-pub unsafe extern "C" fn mumble_registerAPIFunctions(_api: *const c_void) {}
+pub unsafe extern "C" fn mumble_registerAPIFunctions(api: *const c_void) {
+    if !api.is_null() {
+        let _ = MUMBLE_API.set(api as usize);
+    }
+}
 
 /// # Safety
 #[no_mangle]
@@ -166,25 +227,55 @@ pub unsafe extern "C" fn mumble_onAudioSourceFetched(
 }
 
 // ---------------------------------------------------------------------------
+// Identity mapping callbacks
+// ---------------------------------------------------------------------------
+
+/// Called when a new user appears on the server.
+/// We query the Mumble API for their username and cache the mapping
+/// `mumble_session_id → username` so the audio callback can look them up.
+///
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn mumble_onUserAdded(
+    connection: mumble_connection_t,
+    user_id: mumble_userid_t,
+) {
+    let Some(api) = api() else { return };
+    let mut name_ptr: *const c_char = std::ptr::null();
+    let rc = (api.get_user_name)(plugin_id(), connection, user_id, &raw mut name_ptr);
+    if rc == MUMBLE_STATUS_OK && !name_ptr.is_null() {
+        if let Ok(name) = std::ffi::CStr::from_ptr(name_ptr).to_str() {
+            let name = name.to_string();
+            tracing::info!(user_id, %name, "RMTFAR: user added — registering identity");
+            plugin().state.register_session(user_id, name);
+        }
+        // Free the string allocated by Mumble
+        (api.free_memory)(plugin_id(), name_ptr.cast::<c_void>());
+    }
+}
+
+/// Called when a user leaves the server. Cleans up the cached mapping.
+///
+/// # Safety
+#[no_mangle]
+pub unsafe extern "C" fn mumble_onUserRemoved(
+    _connection: mumble_connection_t,
+    user_id: mumble_userid_t,
+) {
+    plugin().state.unregister_session(user_id);
+    tracing::info!(user_id, "RMTFAR: user removed");
+}
+
+// ---------------------------------------------------------------------------
 // Optional callbacks
 // ---------------------------------------------------------------------------
 
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn mumble_onUserIdentityChanged(
-    user_id: mumble_userid_t,
-    identity: *const c_char,
+    _user_id: mumble_userid_t,
+    _identity: *const c_char,
 ) {
-    if identity.is_null() {
-        return;
-    }
-    if let Ok(s) = std::ffi::CStr::from_ptr(identity).to_str() {
-        if !s.is_empty() {
-            plugin()
-                .state
-                .register_identity(&user_id.to_string(), s.to_string());
-        }
-    }
 }
 
 /// # Safety

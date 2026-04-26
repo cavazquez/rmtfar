@@ -114,10 +114,12 @@ impl Plugin {
             return false;
         }
 
-        // Find the sender by mapping mumble user ID → steam ID
+        // Find the sender: Mumble session ID → username → player state.
+        // The test-client / Arma 3 mod must register players keyed by their
+        // Mumble username (--id <mumble-username> in rmtfar-test-client).
         let sender = radio.as_ref().and_then(|m| {
-            let steam_id = self.state.mumble_id_to_steam(&mumble_id.to_string())?;
-            m.players.iter().find(|p| &p.steam_id == steam_id)
+            let name = self.state.name_for_session(mumble_id)?;
+            m.players.iter().find(|p| p.steam_id == name)
         });
 
         let Some(sender) = sender else {
