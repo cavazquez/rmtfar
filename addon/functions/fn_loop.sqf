@@ -21,6 +21,13 @@ while {RMTFAR_enabled} do {
             private _state = [_x] call RMTFAR_fnc_getPlayerState;
             [_state] call RMTFAR_fnc_sendState;
         } forEach allPlayers;
+
+        // Modo DEBUG: jugadores sintéticos (mismo v1|... que jugadores reales)
+        if (missionNamespace getVariable ["RMTFAR_debugMode", false]) then {
+            {
+                [_x] call RMTFAR_fnc_sendState;
+            } forEach (missionNamespace getVariable ["RMTFAR_ghosts", []]);
+        };
     };
     sleep 0.05;
 };

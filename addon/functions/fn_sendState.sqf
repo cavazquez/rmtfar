@@ -57,8 +57,29 @@ private _payload = format [
 
 private _ret = "rmtfar" callExtension ["send", [_payload]];
 
+private _uid = _state get "uid";
+if (
+    missionNamespace getVariable ["RMTFAR_debugMode", false]
+    && { _uid find "RMTFAR_ghost" == 0 }
+) then {
+    private _key = format ["RMTFAR_dbghost_%1", _uid];
+    private _last = missionNamespace getVariable [_key, -100];
+    private _t = diag_tickTime;
+    if (_t - _last >= 1) then {
+        missionNamespace setVariable [_key, _t];
+        diag_log format [
+            "RMTFAR DEBUG: ghost send uid=%1 ret=%2 sr_ptt=%3 lr_ptt=%4 freq=%5 ch=%6",
+            _uid,
+            _ret,
+            _state get "ptt_radio_sr",
+            _state get "ptt_radio_lr",
+            _state get "radio_freq",
+            _state get "radio_channel"
+        ];
+    };
+};
+
 if (missionNamespace getVariable ["RMTFAR_logSends", false]) then {
-    private _uid = _state get "uid";
     private _anyPtt = (_state get "ptt_local") || {_state get "ptt_radio_sr"} || {_state get "ptt_radio_lr"};
     if (_uid isEqualTo name player && _anyPtt) then {
         private _t = diag_tickTime;

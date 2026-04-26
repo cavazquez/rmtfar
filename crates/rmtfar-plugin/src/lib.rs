@@ -22,6 +22,7 @@ use rmtfar_protocol::{distance, RadioStateMessage, LOCAL_VOICE_RANGE_M, PLUGIN_R
 use state::PluginState;
 use std::net::UdpSocket;
 use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 // ---------------------------------------------------------------------------
 // Global plugin singleton
@@ -40,6 +41,8 @@ pub(crate) struct Plugin {
     pub(crate) state: PluginState,
     socket: Option<UdpSocket>,
     buf: Vec<u8>,
+    /// Throttle `tracing::info!` for each UDP `radio_state` (high rate from Arma).
+    last_udp_info_log: Option<Instant>,
 }
 
 impl Plugin {
@@ -48,6 +51,7 @@ impl Plugin {
             state: PluginState::default(),
             socket: None,
             buf: vec![0u8; 65535],
+            last_udp_info_log: None,
         }
     }
 
@@ -82,18 +86,61 @@ impl Plugin {
         self.socket = None;
     }
 
+    fn log_radio_state_throttled(&mut self, msg: &RadioStateMessage) {
+        const MIN_INTERVAL: Duration = Duration::from_millis(900);
+        let now = Instant::now();
+        let ok = self.last_udp_info_log.is_none_or(|t| {
+            now.saturating_duration_since(t) >= MIN_INTERVAL
+        });
+        if !ok {
+            return;
+        }
+        self.last_udp_info_log = Some(now);
+
+        let mut parts = Vec::with_capacity(msg.players.len());
+        for p in &msg.players {
+            parts.push(format!(
+                "{} alive={} veh={} tunedSR={}/ch{} txRadio={} type={} freq={}/ch{} range_m={:.0}",
+                p.player_id,
+                u8::from(p.alive),
+                if p.in_vehicle { "y" } else { "n" },
+                p.tuned_sr_freq,
+                p.tuned_sr_channel,
+                u8::from(p.transmitting_radio),
+                p.radio_type,
+                p.radio_freq,
+                p.radio_channel,
+                p.radio_range_m
+            ));
+        }
+        tracing::info!(
+            tick = msg.tick,
+            local = %msg.local_player,
+            n = msg.players.len(),
+            players = %parts.join(" | "),
+            "RMTFAR UDP recv radio_state"
+        );
+    }
+
     /// Drain the UDP socket, keeping only the latest message.
     pub(crate) fn poll(&mut self) {
-        let Some(ref sock) = self.socket else { return };
+        if self.socket.is_none() {
+            return;
+        }
         loop {
-            match sock.recv(self.buf.as_mut_slice()) {
-                Ok(len) => {
-                    if let Ok(msg) = serde_json::from_slice::<RadioStateMessage>(&self.buf[..len]) {
-                        self.state.update(msg);
-                    }
-                }
+            let len = match self
+                .socket
+                .as_ref()
+                .unwrap()
+                .recv(self.buf.as_mut_slice())
+            {
+                Ok(n) => n,
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
                 Err(_) => break,
+            };
+            if let Ok(msg) = serde_json::from_slice::<RadioStateMessage>(&self.buf[..len]) {
+                self.log_radio_state_throttled(&msg);
+                self.state.update(msg);
             }
         }
     }

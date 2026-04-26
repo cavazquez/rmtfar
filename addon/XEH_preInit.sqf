@@ -3,6 +3,10 @@
 
 RMTFAR_enabled = false;
 
+// Modo test Windows: ghosts sintéticos → misma ruta que jugadores reales (ver docs/windows-ghost-test.md)
+missionNamespace setVariable ["RMTFAR_debugMode", false];
+missionNamespace setVariable ["RMTFAR_ghosts", []];
+
 // RPT cada ~2 s con PTT local y retorno de callExtension. Desactivar:
 //   missionNamespace setVariable ["RMTFAR_logSends", false];
 missionNamespace setVariable ["RMTFAR_logSends", true];

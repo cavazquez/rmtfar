@@ -118,7 +118,7 @@ fi
 # ── 5. SQF static checks ─────────────────────────────────────────────────────
 banner "SQF — static analysis"
 
-SQF_DIR="arma-mod/@rmtfar/addons/rmtfar"
+SQF_DIR="addon"
 SQF_WARN=0
 
 check_sqf() {

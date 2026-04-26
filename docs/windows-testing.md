@@ -30,14 +30,15 @@ Ir a [GitHub Actions](https://github.com/cavazquez/rmtfar/actions) y descargar l
 ```bash
 sudo apt install mingw-w64
 rustup target add x86_64-pc-windows-gnu
+cargo install armake2
 
-RELEASE=1 ./scripts/build-extension.sh
-TARGET=windows RELEASE=1 ./scripts/build-plugin.sh
+./scripts/build-windows.sh --release
 ```
 
-Los binarios quedan en `arma-mod/@rmtfar/`:
-- `rmtfar_x64.dll`
-- `rmtfar_plugin.dll`
+Los artefactos quedan en `dist/windows-x64/`:
+
+- `arma3/@rmtfar/rmtfar_x64.dll`, `mod.cpp`, `addons/rmtfar.pbo`
+- `mumble/rmtfar_plugin.dll`
 
 ---
 

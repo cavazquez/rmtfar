@@ -278,6 +278,17 @@ fn handle_send(json: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+fn handle_forget(player_id: &str) -> Result<(), String> {
+    let mut s = get_state().lock().map_err(|e| format!("lock: {e}"))?;
+    let _ = s.store.remove(player_id);
+    let local_id = s.local_id.clone().unwrap_or_default();
+    let msg = build_message(&s.store, &local_id);
+    if let Ok(json) = serde_json::to_vec(&msg) {
+        let _ = s.sender.send(&json);
+    }
+    Ok(())
+}
+
 fn build_message(store: &PlayerStore, local_id: &str) -> RadioStateMessage {
     let (server_id, tick) = store
         .get(local_id)
@@ -339,6 +350,20 @@ pub unsafe extern "C" fn RVExtensionArgs(
         "send" if arg_count >= 1 => {
             let json = CStr::from_ptr(*args).to_string_lossy();
             match handle_send(json.as_bytes()) {
+                Ok(()) => {
+                    write_output(output, output_size, "0");
+                    0
+                }
+                Err(e) => {
+                    let msg = format!("ERR:{e}");
+                    write_output(output, output_size, &msg);
+                    -1
+                }
+            }
+        }
+        "forget" if arg_count >= 1 => {
+            let id = CStr::from_ptr(*args).to_string_lossy();
+            match handle_forget(id.trim()) {
                 Ok(()) => {
                     write_output(output, output_size, "0");
                     0

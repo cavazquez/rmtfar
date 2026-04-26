@@ -18,6 +18,10 @@ impl PlayerStore {
         self.players.insert(state.player_id.clone(), state);
     }
 
+    pub fn remove(&mut self, player_id: &str) -> bool {
+        self.players.remove(player_id).is_some()
+    }
+
     pub fn get(&self, player_id: &str) -> Option<&PlayerState> {
         self.players.get(player_id)
     }

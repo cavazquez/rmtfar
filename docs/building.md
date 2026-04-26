@@ -9,30 +9,34 @@
 ## Quick Start — Linux (plugin + bridge + test-client)
 
 ```bash
-./scripts/build-linux.sh           # release + instala plugin en Mumble
-./scripts/build-linux.sh --debug   # debug (más logs de tracing)
+./scripts/build-linux.sh --release   # release → dist/linux/mumble/ + instala en Mumble
+./scripts/build-linux.sh           # debug → solo target/debug/
 ```
 
-Compila el plugin, el bridge y el test-client. Instala automáticamente
+Compila el plugin, el bridge y el test-client. Con `--release` instala automáticamente
 `librmtfar_plugin.so` en los paths que Mumble busca y genera el
 `rmtfar_plugin.mumble_plugin` instalable desde la UI.
 
 ## Quick Start — Windows (cross-compile desde Linux)
 
 ```bash
-RELEASE=1 ./scripts/build-windows.sh
+./scripts/build-windows.sh --release
 ```
 
-Produce los tres binarios en `arma-mod/@rmtfar/`:
-- `rmtfar_x64.dll` — extension para Arma 3
-- `rmtfar_plugin.dll` — plugin para Mumble (Windows)
-- `rmtfar-bridge.exe` — bridge para testing en Windows
+Produce en `dist/windows-x64/`:
+
+- `arma3/@rmtfar/rmtfar_x64.dll` — extension para Arma 3
+- `arma3/@rmtfar/addons/rmtfar.pbo` — SQF empaquetado desde `addon/`
+- `arma3/@rmtfar/mod.cpp` — metadatos del mod
+- `mumble/rmtfar_plugin.dll` — plugin para Mumble (Windows)
 
 ## Packing the SQF mod (PBO)
 
+Normalmente lo hace `build-windows.sh --release`. Manual:
+
 ```bash
 ./scripts/pack-pbo.sh
-# Output: arma-mod/@rmtfar/addons/rmtfar.pbo
+# Output: dist/windows-x64/arma3/@rmtfar/addons/rmtfar.pbo
 ```
 
 Requires `armake2` (`cargo install armake2`).

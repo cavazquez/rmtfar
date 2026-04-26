@@ -367,6 +367,12 @@ Los keybinds se configuran en *Configuración → Controles → Addons → RMTFA
 
 ---
 
+## 🪟 Prueba en Windows (Arma + Mumble, sin test-client Linux)
+
+Para validar **SQF → `rmtfar_x64.dll` → UDP :9501 → plugin Mumble** con un “jugador remoto” sintético, usá el modo DEBUG del mod (ghosts) y seguí [docs/windows-ghost-test.md](docs/windows-ghost-test.md).
+
+---
+
 ## 🐧 Cómo probar en Linux (sin Arma 3)
 
 > **Nota:** El bridge solo se usa para testing en Linux donde no hay Arma 3.

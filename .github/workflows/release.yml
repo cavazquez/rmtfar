@@ -123,6 +123,9 @@ jobs:
         env:
           OUTPUT: CHANGELOG.md
 
+      - name: Install armake2 (PBO)
+        run: cargo install armake2
+
       - name: Package @rmtfar mod folder
         run: |
           TAG="${{ github.ref_name }}"
@@ -133,9 +136,8 @@ jobs:
              "${MOD_DIR}/@rmtfar/"
           cp release-artifacts/rmtfar-plugin-windows/rmtfar_plugin.dll \
              "${MOD_DIR}/@rmtfar/"
-
-          # SQF sources (PBO is not built in CI yet; include sources for manual packing)
-          cp -r arma-mod/@rmtfar/addons/rmtfar "${MOD_DIR}/@rmtfar/addons/"
+          cp mod.cpp "${MOD_DIR}/@rmtfar/"
+          armake2 pack addon "${MOD_DIR}/@rmtfar/addons/rmtfar.pbo"
 
           cp LICENSE README.md "${MOD_DIR}/"
           zip -r "${MOD_DIR}.zip" "${MOD_DIR}/"
