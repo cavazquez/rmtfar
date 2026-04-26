@@ -30,17 +30,11 @@ echo "=== Empaquetando RMTFAR v$VERSION ==="
 
 # ── Compilar binarios ────────────────────────────────────────────────────────
 
-echo "--- Extension DLL (Windows) ---"
-RELEASE=1 bash scripts/build-extension.sh
+echo "--- Binarios Windows (extension + plugin + bridge) ---"
+RELEASE=1 bash scripts/build-windows.sh
 
-echo "--- Plugin DLL (Windows) ---"
-TARGET=windows RELEASE=1 bash scripts/build-plugin.sh
-
-echo "--- Bridge Windows ---"
-RELEASE=1 bash scripts/build-bridge-windows.sh
-
-echo "--- Plugin + bridge Linux ---"
-RELEASE=1 bash scripts/build-all.sh
+echo "--- Binarios Linux (plugin + bridge + test-client) ---"
+bash scripts/build-linux.sh
 
 echo "--- PBO ---"
 bash scripts/pack-pbo.sh

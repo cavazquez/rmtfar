@@ -6,30 +6,27 @@
 - For Windows DLLs: `sudo apt install mingw-w64` + `rustup target add x86_64-pc-windows-gnu`
 - For PBO packaging: `cargo install armake2`
 
-## Quick Start — Linux (bridge + plugin)
+## Quick Start — Linux (plugin + bridge + test-client)
 
 ```bash
-cargo build --release -p rmtfar-bridge -p rmtfar-plugin -p rmtfar-test-client
-# Or use the helper script (compiles + runs tests):
-RELEASE=1 ./scripts/build-all.sh
+./scripts/build-linux.sh           # release + instala plugin en Mumble
+./scripts/build-linux.sh --debug   # debug (más logs de tracing)
 ```
 
-Binaries land in `target/release/`.
+Compila el plugin, el bridge y el test-client. Instala automáticamente
+`librmtfar_plugin.so` en los paths que Mumble busca y genera el
+`rmtfar_plugin.mumble_plugin` instalable desde la UI.
 
-## Building the Arma 3 Extension DLL (Windows)
+## Quick Start — Windows (cross-compile desde Linux)
 
 ```bash
-RELEASE=1 ./scripts/build-extension.sh
-# Output: arma-mod/@rmtfar/rmtfar_x64.dll
+RELEASE=1 ./scripts/build-windows.sh
 ```
 
-## Building the Mumble Plugin DLL (Windows)
-
-```bash
-TARGET=windows RELEASE=1 ./scripts/build-plugin.sh
-# Output: arma-mod/@rmtfar/rmtfar_plugin.dll
-# Install to: %APPDATA%\Mumble\Plugins\
-```
+Produce los tres binarios en `arma-mod/@rmtfar/`:
+- `rmtfar_x64.dll` — extension para Arma 3
+- `rmtfar_plugin.dll` — plugin para Mumble (Windows)
+- `rmtfar-bridge.exe` — bridge para testing en Windows
 
 ## Packing the SQF mod (PBO)
 
