@@ -122,18 +122,31 @@ unsafe impl Sync for Inner {}
 impl Inner {
     fn open() -> anyhow::Result<Self> {
         use std::ffi::CString;
+
+        // Mumble 1.4+ uses /MumbleLink.<uid> on Linux so each user gets
+        // their own segment.  The bridge acts as the "game" and must
+        // CREATE the segment (O_CREAT) and size it with ftruncate before
+        // mapping it.
         let uid = unsafe { libc::getuid() };
         let name = CString::new(format!("/MumbleLink.{uid}"))?;
 
         let fd = unsafe {
             libc::shm_open(
                 name.as_ptr(),
-                libc::O_RDWR,
+                libc::O_RDWR | libc::O_CREAT,
                 (libc::S_IRUSR | libc::S_IWUSR) as libc::mode_t,
             )
         };
         if fd < 0 {
             anyhow::bail!("shm_open failed: {}", std::io::Error::last_os_error());
+        }
+
+        // Set the size (required after O_CREAT, no-op if already sized).
+        #[allow(clippy::cast_possible_wrap)]
+        let ret = unsafe { libc::ftruncate(fd, LINKED_MEM_SIZE as libc::off_t) };
+        if ret < 0 {
+            unsafe { libc::close(fd) };
+            anyhow::bail!("ftruncate failed: {}", std::io::Error::last_os_error());
         }
 
         let ptr = unsafe {
