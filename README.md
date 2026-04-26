@@ -117,24 +117,16 @@
 
 ### 🎮 Arma 3 → Extension DLL (callExtension)
 
-```json
-{
-  "v": 1,
-  "type": "player_state",
-  "steam_id": "76561198000000000",
-  "server_id": "192.168.1.100:2302",
-  "tick": 123456,
-  "pos": [1234.5, 567.8, 12.3],
-  "dir": 145.0,
-  "alive": true,
-  "conscious": true,
-  "vehicle": "",
-  "ptt_local": false,
-  "ptt_radio_sr": true,
-  "ptt_radio_lr": false,
-  "radio_sr": { "freq": "43.0", "channel": 1, "volume": 1.0, "enabled": true },
-  "radio_lr": null
-}
+Formato delimitado (estable, sin JSON en SQF):
+
+```text
+v1|steam_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch
+```
+
+Ejemplo:
+
+```text
+v1|76561198000000000|Servidor Test|123456|1234.5|567.8|12.3|145.0|1|1||0|1|0|43.0|1||1
 ```
 
 ### 🦀 Extension → Plugin (UDP :9501)
@@ -295,8 +287,8 @@ x86_64-w64-mingw32-objdump -p arma-mod/@rmtfar/rmtfar_plugin.dll | grep mumble_
 private _ver = "rmtfar" callExtension "version";
 systemChat format ["RMTFAR version: %1", _ver];
 
-// Enviar estado del jugador a la extension (JSON serializado)
-private _result = "rmtfar" callExtension ["send", [_jsonState]];
+// Enviar estado del jugador a la extension (payload v1 delimitado)
+private _result = "rmtfar" callExtension ["send", [_payloadV1]];
 ```
 
 ### Por qué cargo-xwin y no mingw-w64
@@ -329,7 +321,7 @@ en Windows, sin este problema.
             ├── fn_init.sqf     # CBA keybinds (PTT local, SR, LR)
             ├── fn_loop.sqf     # Loop: recolecta estado, broadcast, envía a extension
             ├── fn_getPlayerState.sqf  # Lee pos/dir/alive/radio de un jugador
-            └── fn_sendState.sqf       # Serializa JSON y llama callExtension
+            └── fn_sendState.sqf       # Serializa payload v1 y llama callExtension
 ```
 
 ### Keybinds (CBA)

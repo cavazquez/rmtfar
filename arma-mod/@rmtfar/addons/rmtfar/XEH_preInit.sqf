@@ -3,9 +3,9 @@
 
 RMTFAR_enabled = false;
 
-// Consola de depuración: missionNamespace setVariable ["RMTFAR_logSends", true];
-// → RPT cada ~2 s con PTT local y retorno de callExtension.
-missionNamespace setVariable ["RMTFAR_logSends", false];
+// RPT cada ~2 s con PTT local y retorno de callExtension. Desactivar:
+//   missionNamespace setVariable ["RMTFAR_logSends", false];
+missionNamespace setVariable ["RMTFAR_logSends", true];
 RMTFAR_radioFreq = "152.000";
 RMTFAR_radioChannel = 1;
 RMTFAR_radioFreqLR = "";

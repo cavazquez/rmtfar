@@ -5,7 +5,7 @@
 //! Instead of forwarding data to a separate bridge process, the extension
 //! handles everything directly — just like TFAR does with `TeamSpeak`:
 //!
-//! 1. Parses incoming `PlayerState` JSON from SQF
+//! 1. Parses incoming `PlayerState` payload from SQF (`v1|...`)
 //! 2. Stores state for all players
 //! 3. Writes `MumbleLink` shared memory (positional audio)
 //! 4. Builds and sends `RadioStateMessage` to the Mumble plugin via UDP :9501
@@ -18,7 +18,9 @@ mod sender;
 mod state;
 
 use mumble_link::MumbleLink;
-use rmtfar_protocol::{PlayerState, PlayerSummary, RadioStateMessage, PROTOCOL_VERSION};
+use rmtfar_protocol::{
+    PlayerState, PlayerSummary, RadioConfig, RadioStateMessage, PROTOCOL_VERSION,
+};
 use sender::PluginSender;
 use state::PlayerStore;
 
@@ -57,9 +59,165 @@ fn handle_init(local_id: &str) -> &'static str {
     }
 }
 
+/// Parser principal para `send`.
+/// Formato único soportado: `v1|...`
+fn parse_player_state(raw: &[u8]) -> Result<PlayerState, String> {
+    let s = std::str::from_utf8(raw).map_err(|e| format!("utf8: {e}"))?;
+    let payload = normalize_v1_payload(s)?;
+    if !payload.starts_with("v1|") {
+        return Err("unsupported payload format; expected v1|...".to_string());
+    }
+    parse_player_state_v1(&payload)
+}
+
+/// Arma `callExtension` a veces envuelve el argumento como string JSON
+/// (`"v1|..."`) o como array de un elemento (`["v1|..."]`).
+/// Seguimos aceptando SOLO protocolo v1, pero desempaquetamos esos wrappers.
+fn normalize_v1_payload(s: &str) -> Result<String, String> {
+    let s = s.trim();
+    if s.starts_with("v1|") {
+        return Ok(s.to_string());
+    }
+
+    // Caso 1: payload envuelto como string JSON.
+    if s.starts_with('"') && s.ends_with('"') {
+        let inner =
+            serde_json::from_str::<String>(s).map_err(|e| format!("v1 wrapper string: {e}"))?;
+        return Ok(inner);
+    }
+
+    // Caso 2: payload envuelto como array JSON de un solo string.
+    if s.starts_with('[') && s.ends_with(']') {
+        let arr =
+            serde_json::from_str::<Vec<String>>(s).map_err(|e| format!("v1 wrapper array: {e}"))?;
+        if arr.len() == 1 {
+            return Ok(arr.into_iter().next().unwrap_or_default());
+        }
+    }
+
+    Err("unsupported payload format; expected v1|...".to_string())
+}
+
+#[allow(clippy::similar_names)] // Protocol field names are intentionally parallel (sr/lr).
+fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
+    let fields = split_escaped_pipe(s);
+    if fields.len() != 18 {
+        return Err(format!("v1: bad field count {}, expected 18", fields.len()));
+    }
+    if fields[0] != "v1" {
+        return Err("v1: missing prefix".to_string());
+    }
+    let steam_id = unescape_pipe_field(&fields[1]);
+    let server_id = unescape_pipe_field(&fields[2]);
+    let tick = fields[3]
+        .parse::<u64>()
+        .map_err(|e| format!("v1: tick: {e}"))?;
+    let x = fields[4]
+        .parse::<f32>()
+        .map_err(|e| format!("v1: x: {e}"))?;
+    let y = fields[5]
+        .parse::<f32>()
+        .map_err(|e| format!("v1: y: {e}"))?;
+    let z = fields[6]
+        .parse::<f32>()
+        .map_err(|e| format!("v1: z: {e}"))?;
+    let dir = fields[7]
+        .parse::<f32>()
+        .map_err(|e| format!("v1: dir: {e}"))?;
+    let alive = fields[8] == "1";
+    let conscious = fields[9] == "1";
+    let vehicle = unescape_pipe_field(&fields[10]);
+    let ptt_local = fields[11] == "1";
+    let ptt_radio_sr = fields[12] == "1";
+    let ptt_radio_lr = fields[13] == "1";
+    let sr_freq = unescape_pipe_field(&fields[14]);
+    let sr_ch = fields[15]
+        .parse::<u8>()
+        .map_err(|e| format!("v1: sr_ch: {e}"))?;
+    let lr_freq = unescape_pipe_field(&fields[16]);
+    let lr_ch = fields[17]
+        .parse::<u8>()
+        .map_err(|e| format!("v1: lr_ch: {e}"))?;
+
+    let radio_sr = Some(RadioConfig {
+        freq: sr_freq,
+        channel: sr_ch,
+        volume: 1.0,
+        enabled: true,
+        range_m: None,
+    });
+    let radio_lr = if lr_freq.is_empty() {
+        None
+    } else {
+        Some(RadioConfig {
+            freq: lr_freq,
+            channel: lr_ch,
+            volume: 1.0,
+            enabled: true,
+            range_m: None,
+        })
+    };
+
+    Ok(PlayerState {
+        v: PROTOCOL_VERSION,
+        msg_type: "player_state".to_string(),
+        steam_id,
+        server_id,
+        tick,
+        pos: [x, y, z],
+        dir,
+        alive,
+        conscious,
+        vehicle,
+        ptt_local,
+        ptt_radio_sr,
+        ptt_radio_lr,
+        radio_sr,
+        radio_lr,
+    })
+}
+
+fn split_escaped_pipe(s: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    let mut cur = String::new();
+    let mut esc = false;
+    for ch in s.chars() {
+        if esc {
+            cur.push(ch);
+            esc = false;
+            continue;
+        }
+        match ch {
+            '\\' => esc = true,
+            '|' => {
+                out.push(cur);
+                cur = String::new();
+            }
+            _ => cur.push(ch),
+        }
+    }
+    out.push(cur);
+    out
+}
+
+fn unescape_pipe_field(s: &str) -> String {
+    let mut out = String::with_capacity(s.len());
+    let mut esc = false;
+    for ch in s.chars() {
+        if esc {
+            out.push(ch);
+            esc = false;
+        } else if ch == '\\' {
+            esc = true;
+        } else {
+            out.push(ch);
+        }
+    }
+    out
+}
+
 fn handle_send(json: &[u8]) -> Result<(), String> {
-    let player_state: PlayerState =
-        serde_json::from_slice(json).map_err(|e| format!("json: {e}"))?;
+    let player_state = parse_player_state(json)?;
 
     if player_state.v != PROTOCOL_VERSION {
         return Err(format!("bad version: {}", player_state.v));

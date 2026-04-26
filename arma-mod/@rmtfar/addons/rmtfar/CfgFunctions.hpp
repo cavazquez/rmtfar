@@ -7,6 +7,7 @@ class CfgFunctions {
             class loop            {};
             class getPlayerState  {};
             class sendState       {};
+            class escapeJsonString {};
             class setFrequency    {};
             class radioTransmit   {};
         };
