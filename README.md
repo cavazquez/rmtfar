@@ -7,7 +7,7 @@
 [![CI](https://github.com/cavazquez/rmtfar/actions/workflows/ci.yml/badge.svg)](https://github.com/cavazquez/rmtfar/actions/workflows/ci.yml)
 [![Rust](https://img.shields.io/badge/Rust-1.75+-f74c00?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
-[![Mumble](https://img.shields.io/badge/Mumble-1.5.735-darkgreen?logo=mumble&logoColor=white)](https://www.mumble.info/)
+[![Mumble](https://img.shields.io/badge/Mumble-1.5%2B-darkgreen?logo=mumble&logoColor=white)](https://www.mumble.info/)
 [![Arma 3](https://img.shields.io/badge/Arma_3-SQF-8B5C14)](https://store.steampowered.com/app/107410/Arma_3/)
 
 </div>
@@ -20,7 +20,7 @@
 |---|---|---|
 || 🦀 | **Rust** | Extension DLL, bridge y plugin de Mumble |
 || 🎮 | **SQF** | Scripts dentro de Arma 3 |
-|| 🎙️ | **Mumble 1.5.735** | Transporte de voz (cliente, verificado) |
+|| 🎙️ | **Mumble 1.5+** | Transporte de voz (cliente, verificado en 1.5.735) |
 || 🖥️ | **Murmur** | Servidor de voz |
 || 📦 | **serde / serde_json** | Serialización del protocolo |
 || 🔊 | **dasp** | DSP: filtro bandpass, soft-clip y ruido de radio |
@@ -85,7 +85,7 @@
 | Funcionalidad | Estado | Notas |
 |---|---|---|
 | Pipeline end-to-end sin Arma 3 | ✅ | bridge + plugin + test-client |
-| Plugin carga en Mumble 1.5.735 | ✅ | API v1.0.x, `MUMBLE_FEATURE_AUDIO` |
+| Plugin carga en Mumble 1.5+ | ✅ | API v1.0.x, `MUMBLE_FEATURE_AUDIO` (probado en 1.5.735) |
 | Mapeo de identidad session → username | ✅ | lazy registration en talking callback |
 | **Voz de proximidad** — atenuación por distancia | ✅ | rango 50m, lineal |
 | **Filtro de frecuencia SR** — mute si no coincide | ✅ | string match exacto |
@@ -224,7 +224,7 @@ rmtfar/
 
 | Software | Versión mínima | Versión verificada |
 |---|---|---|
-| [Mumble](https://www.mumble.info/) | 1.5.x | **1.5.735** ✅ |
+| [Mumble](https://www.mumble.info/) | 1.5+ | probado en **1.5.735** ✅ |
 | [Murmur](https://www.mumble.info/documentation/mumble-server/) | Cualquier reciente | — |
 
 ---
