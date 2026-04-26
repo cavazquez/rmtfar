@@ -314,6 +314,34 @@ fn next_arg(args: &[String], i: &mut usize) -> Result<String> {
     Ok(v)
 }
 
+fn print_help() {
+    println!("rmtfar-test-client — Simulate an Arma 3 player for RMTFAR testing\n");
+    println!("OPTIONS:");
+    println!("  --id <steam_id>       Player SteamID64      (default: 76561198000000001)");
+    println!("  --server <ip:port>    Server identifier      (default: 127.0.0.1:2302)");
+    println!("  --pos <x,y,z>         Static position (m)    (default: 0,0,0)");
+    println!("  --orbit               Circular movement around --pos");
+    println!("  --orbit-radius <m>    Orbit radius in metres (default: 50)");
+    println!("  --orbit-period <s>    Orbit period in seconds (default: 30)");
+    println!("  --ptt-local           Activate local PTT (direct voice)");
+    println!("  --ptt-radio           Activate SR radio PTT");
+    println!("  --freq <freq>         SR radio frequency     (default: 152.000)");
+    println!("  --channel <n>         SR radio channel 1-8              (default: 1)");
+    println!("  --radio-range <m>     Override SR radio range in metres  (default: 5000)");
+    println!("  --ptt-radio-lr        Activate LR radio PTT");
+    println!("  --freq-lr <freq>      LR radio frequency     (no default — disables LR)");
+    println!("  --channel-lr <n>      LR radio channel 1-8              (default: 1)");
+    println!("  --radio-range-lr <m>  Override LR radio range in metres (default: 20000)");
+    println!("  --vehicle <classname> Simulate being inside a vehicle (blocks local PTT)");
+    println!("  --dead                Simulate dead player (all PTT blocked)");
+    println!("  --unconscious         Simulate ACE unconscious (all PTT blocked)");
+    println!("  --bridge-addr <h:p>   Bridge address          (default: {DEFAULT_BRIDGE_ADDR})");
+    println!("  --help                Print this help\n");
+    println!("EXAMPLE - test proximity audio with two terminals:");
+    println!("  Terminal 1: rmtfar-test-client --id p1 --pos 0,0,0 --ptt-local");
+    println!("  Terminal 2: rmtfar-test-client --id p2 --orbit --ptt-local");
+}
+
 #[cfg(test)]
 mod tests {
     use super::parse_args;
@@ -343,7 +371,10 @@ mod tests {
     fn id_and_pos_parsed() {
         let cfg = parse_args(&args(&["--id", "Jugador1", "--pos", "100,0,200"])).unwrap();
         assert_eq!(cfg.steam_id, "Jugador1");
-        assert_eq!(cfg.base_pos, [100.0, 0.0, 200.0]);
+        let [x, y, z] = cfg.base_pos;
+        assert!((x - 100.0).abs() < f32::EPSILON);
+        assert!(y.abs() < f32::EPSILON);
+        assert!((z - 200.0).abs() < f32::EPSILON);
     }
 
     #[test]
@@ -371,9 +402,14 @@ mod tests {
 
     #[test]
     fn lr_radio_args() {
-        let cfg =
-            parse_args(&args(&["--freq-lr", "30.0", "--channel-lr", "2", "--ptt-radio-lr"]))
-                .unwrap();
+        let cfg = parse_args(&args(&[
+            "--freq-lr",
+            "30.0",
+            "--channel-lr",
+            "2",
+            "--ptt-radio-lr",
+        ]))
+        .unwrap();
         assert_eq!(cfg.freq_lr, "30.0");
         assert_eq!(cfg.channel_lr, 2);
         assert!(cfg.ptt_radio_lr);
@@ -394,32 +430,4 @@ mod tests {
     fn bad_pos_errors() {
         assert!(parse_args(&args(&["--pos", "1,2"])).is_err());
     }
-}
-
-fn print_help() {
-    println!("rmtfar-test-client — Simulate an Arma 3 player for RMTFAR testing\n");
-    println!("OPTIONS:");
-    println!("  --id <steam_id>       Player SteamID64      (default: 76561198000000001)");
-    println!("  --server <ip:port>    Server identifier      (default: 127.0.0.1:2302)");
-    println!("  --pos <x,y,z>         Static position (m)    (default: 0,0,0)");
-    println!("  --orbit               Circular movement around --pos");
-    println!("  --orbit-radius <m>    Orbit radius in metres (default: 50)");
-    println!("  --orbit-period <s>    Orbit period in seconds (default: 30)");
-    println!("  --ptt-local           Activate local PTT (direct voice)");
-    println!("  --ptt-radio           Activate SR radio PTT");
-    println!("  --freq <freq>         SR radio frequency     (default: 152.000)");
-    println!("  --channel <n>         SR radio channel 1-8              (default: 1)");
-    println!("  --radio-range <m>     Override SR radio range in metres  (default: 5000)");
-    println!("  --ptt-radio-lr        Activate LR radio PTT");
-    println!("  --freq-lr <freq>      LR radio frequency     (no default — disables LR)");
-    println!("  --channel-lr <n>      LR radio channel 1-8              (default: 1)");
-    println!("  --radio-range-lr <m>  Override LR radio range in metres (default: 20000)");
-    println!("  --vehicle <classname> Simulate being inside a vehicle (blocks local PTT)");
-    println!("  --dead                Simulate dead player (all PTT blocked)");
-    println!("  --unconscious         Simulate ACE unconscious (all PTT blocked)");
-    println!("  --bridge-addr <h:p>   Bridge address          (default: {DEFAULT_BRIDGE_ADDR})");
-    println!("  --help                Print this help\n");
-    println!("EXAMPLE - test proximity audio with two terminals:");
-    println!("  Terminal 1: rmtfar-test-client --id p1 --pos 0,0,0 --ptt-local");
-    println!("  Terminal 2: rmtfar-test-client --id p2 --orbit --ptt-local");
 }

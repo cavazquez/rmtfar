@@ -196,11 +196,10 @@ rmtfar/
 ├── 🪖 arma-mod/
 │   └── @rmtfar/                   # Mod de Arma 3 + DLL precompilada
 └── 🔧 scripts/
-    ├── build-all.sh
-    ├── build-extension.sh         # Cross-compile MSVC a Windows (cargo-xwin)
-    ├── build-plugin.sh            # Cross-compile MSVC a Windows (cargo-xwin)
+    ├── build-linux.sh             # Plugin .so + instala en Mumble + bridge + test-client
+    ├── build-windows.sh           # Cross-compile mingw-w64: extension DLL + plugin DLL
     ├── pack-pbo.sh                # Empaqueta SQF en PBO para Arma 3
-    └── package-release.sh
+    └── package-release.sh         # Empaqueta release completo (llama a los anteriores)
 ```
 
 ---
@@ -250,9 +249,10 @@ cargo install armake2
 ### Compilar todo
 
 ```bash
-RELEASE=1 ./scripts/build-extension.sh           # → arma-mod/@rmtfar/rmtfar_x64.dll
-TARGET=windows RELEASE=1 ./scripts/build-plugin.sh  # → arma-mod/@rmtfar/rmtfar_plugin.dll
-./scripts/pack-pbo.sh                             # → arma-mod/@rmtfar/addons/rmtfar.pbo
+./scripts/build-linux.sh             # compila plugin .so, bridge y test-client
+./scripts/build-windows.sh           # cross-compila extension DLL y plugin DLL (mingw-w64)
+./scripts/pack-pbo.sh                # → arma-mod/@rmtfar/addons/rmtfar.pbo
+./scripts/package-release.sh         # ejecuta todo lo anterior y empaqueta el release
 ```
 
 ### Archivos generados
