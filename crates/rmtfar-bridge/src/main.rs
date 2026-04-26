@@ -88,7 +88,7 @@ fn main() -> Result<()> {
         }
 
         debug!(
-            uid = %state.steam_id,
+            uid = %state.player_id,
             pos = ?state.pos,
             dir = state.dir,
             alive = state.alive,
@@ -103,7 +103,7 @@ fn main() -> Result<()> {
         let local_id = cli
             .local_id
             .as_deref()
-            .unwrap_or(&state.steam_id)
+            .unwrap_or(&state.player_id)
             .to_string();
         store.update(state);
 

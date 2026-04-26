@@ -34,7 +34,7 @@ fn main() -> Result<()> {
     socket.connect(bridge_addr.as_str()).context("connect")?;
 
     println!("RMTFAR Test Client");
-    println!("  Player : {}", config.steam_id);
+    println!("  Player : {}", config.player_id);
     println!("  Server : {}", config.server_id);
     println!("  Mode   : {}", config.mode_label());
     println!("  Target : {bridge_addr} @ 20 Hz  (Ctrl-C to stop)\n");
@@ -77,7 +77,7 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
     PlayerState {
         v: 1,
         msg_type: "player_state".into(),
-        steam_id: cfg.steam_id.clone(),
+        player_id: cfg.player_id.clone(),
         server_id: cfg.server_id.clone(),
         tick,
         pos,
@@ -108,7 +108,7 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
 
 #[allow(clippy::struct_excessive_bools)]
 struct Config {
-    steam_id: String,
+    player_id: String,
     server_id: String,
     bridge_addr: String,
     base_pos: [f32; 3],
@@ -172,7 +172,7 @@ impl Config {
 
 #[allow(clippy::too_many_lines, clippy::similar_names)]
 fn parse_args(args: &[String]) -> Result<Config> {
-    let mut steam_id = "76561198000000001".to_string();
+    let mut player_id = "Jugador1".to_string();
     let mut server_id = "127.0.0.1:2302".to_string();
     let mut base_pos = [0.0f32; 3];
     let mut orbit = false;
@@ -196,7 +196,7 @@ fn parse_args(args: &[String]) -> Result<Config> {
     while i < args.len() {
         match args[i].as_str() {
             "--id" => {
-                steam_id = next_arg(args, &mut i)?;
+                player_id = next_arg(args, &mut i)?;
             }
             "--server" => {
                 server_id = next_arg(args, &mut i)?;
@@ -282,7 +282,7 @@ fn parse_args(args: &[String]) -> Result<Config> {
     }
 
     Ok(Config {
-        steam_id,
+        player_id,
         server_id,
         bridge_addr,
         base_pos,
@@ -317,7 +317,7 @@ fn next_arg(args: &[String], i: &mut usize) -> Result<String> {
 fn print_help() {
     println!("rmtfar-test-client — Simulate an Arma 3 player for RMTFAR testing\n");
     println!("OPTIONS:");
-    println!("  --id <steam_id>       Player SteamID64      (default: 76561198000000001)");
+    println!("  --id <player_id>       Arma 3 profile name   (must match Mumble nickname)");
     println!("  --server <ip:port>    Server identifier      (default: 127.0.0.1:2302)");
     println!("  --pos <x,y,z>         Static position (m)    (default: 0,0,0)");
     println!("  --orbit               Circular movement around --pos");
@@ -356,7 +356,7 @@ mod tests {
     #[test]
     fn defaults_are_sane() {
         let cfg = parse_args(&args(&[])).unwrap();
-        assert_eq!(cfg.steam_id, "76561198000000001");
+        assert_eq!(cfg.player_id, "Jugador1"); // default
         assert_eq!(cfg.freq, "152.000");
         assert_eq!(cfg.channel, 1);
         assert!(cfg.alive);
@@ -370,7 +370,7 @@ mod tests {
     #[test]
     fn id_and_pos_parsed() {
         let cfg = parse_args(&args(&["--id", "Jugador1", "--pos", "100,0,200"])).unwrap();
-        assert_eq!(cfg.steam_id, "Jugador1");
+        assert_eq!(cfg.player_id, "Jugador1");
         let [x, y, z] = cfg.base_pos;
         assert!((x - 100.0).abs() < f32::EPSILON);
         assert!(y.abs() < f32::EPSILON);

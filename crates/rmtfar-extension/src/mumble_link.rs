@@ -227,7 +227,7 @@ unsafe fn write_state(lm: *mut LinkedMem, state: &PlayerState) {
     lm.camera_front = lm.avatar_front;
     lm.camera_top = lm.avatar_top;
 
-    write_wstr(&mut lm.identity, &state.steam_id);
+    write_wstr(&mut lm.identity, &state.player_id);
 
     let ctx = state.server_id.as_bytes();
     let ctx_len = ctx.len().min(lm.context.len());

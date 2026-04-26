@@ -50,7 +50,7 @@ private _lrRm = if (_isLocal) then { RMTFAR_radioLrRangeM } else { _unit getVari
 // Caché ~250 ms; el recálculo se reparte en 8 fases según UID para no hacer N−1 raycasts en un solo frame.
 private _los = 1;
 if (!_isLocal && {_alive} && {!isNull player} && {alive player}) then {
-    private _ck = format ["rmtfar_los_%1", getPlayerUID _unit];
+    private _ck = format ["rmtfar_los_%1", name _unit];
     private _cached = missionNamespace getVariable [_ck, [1, -1]];
     private _now = diag_tickTime;
     private _lastT = _cached select 1;
@@ -59,7 +59,7 @@ if (!_isLocal && {_alive} && {!isNull player} && {alive player}) then {
         _los = _cached select 0;
     } else {
         private _staggerN = 8;
-        private _uid = getPlayerUID _unit;
+        private _uid = name _unit;
         private _h = 0;
         { _h = _h + _x } forEach (toArray _uid);
         private _slot = _h mod _staggerN;
@@ -101,7 +101,7 @@ if (!_isLocal && {_alive} && {!isNull player} && {alive player}) then {
 };
 
 createHashMapFromArray [
-    ["uid",            getPlayerUID _unit],
+    ["uid",            name _unit],
     ["pos",            _pos],
     ["dir",            _dir],
     ["alive",          _alive],

@@ -51,7 +51,7 @@ mod tests {
         PlayerState {
             v: 1,
             msg_type: "player_state".into(),
-            steam_id: id.to_string(),
+            player_id: id.to_string(),
             server_id: "srv".into(),
             tick: 0,
             pos,
@@ -122,7 +122,7 @@ mod tests {
         PlayerState {
             v: 1,
             msg_type: "player_state".into(),
-            steam_id: id.to_string(),
+            player_id: id.to_string(),
             server_id: "srv".into(),
             tick: 0,
             pos,

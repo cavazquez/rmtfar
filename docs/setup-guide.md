@@ -28,7 +28,20 @@ The `rmtfar_x64.dll` must be in the `@rmtfar` root folder.
 > disable BattlEye or whitelist the DLL manually. See the project README
 > for the whitelist request status.
 
-### 3. Launch
+### 3. Configure your Mumble nickname
+
+> **This step is critical.** The plugin matches Mumble users to Arma 3 players
+> by comparing the **Mumble nickname** with the **Arma 3 profile name** (the name
+> shown in the game lobby and above your character). They must be identical.
+
+1. In Mumble, open **Configure → Settings → Personal**
+2. Set **Username** to exactly your **Arma 3 profile name**
+   (the name you set in the Arma 3 launcher, e.g. `Cristian`)
+
+If they don't match the plugin will treat you as an unknown user and audio
+will pass through without any radio filtering.
+
+### 4. Launch
 
 1. Open Mumble and connect to the Murmur server
 2. Launch Arma 3 with `@rmtfar` and `@CBA_A3` mods enabled
@@ -37,7 +50,7 @@ The `rmtfar_x64.dll` must be in the `@rmtfar` root folder.
 > **No bridge needed.** The extension DLL communicates directly with the
 > Mumble plugin via UDP on localhost (like TFAR does with TeamSpeak).
 
-### 4. Configure Keys
+### 5. Configure Keys
 
 In Arma 3, open **Settings → Controls → Configure Addons → RMTFAR**:
 
@@ -46,7 +59,7 @@ In Arma 3, open **Settings → Controls → Configure Addons → RMTFAR**:
 | Local PTT (proximity) | Caps Lock |
 | SR Radio PTT | T |
 
-### 5. Change Frequency (in mission)
+### 6. Change Frequency (in mission)
 
 Open the debug console or use a radio action:
 
@@ -64,6 +77,14 @@ Open the debug console or use a radio action:
 - Check `rmtfar_x64.dll` is in `@rmtfar/`
 - On Linux/Proton: the DLL must be accessible from the Wine prefix
 
+**Radio filters not working (everyone hears everyone, no radio effect):**
+- Verify your Mumble username matches your Arma 3 profile name exactly (case-sensitive)
+- Check that the RMTFAR plugin is enabled in Mumble: *Configure → Plugins → RMTFAR*
+
 **Players can't hear each other on radio:**
 - Confirm both players are on the same frequency and channel
 - Check the Arma 3 RPT logs for RMTFAR errors
+
+**Port 9501 already in use:**
+- Only one Mumble instance can run at a time with RMTFAR
+- Check that no other application is using UDP port 9501: `ss -ulnp | grep 9501`

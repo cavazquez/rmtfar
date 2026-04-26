@@ -15,11 +15,11 @@ impl PlayerStore {
     }
 
     pub fn update(&mut self, state: PlayerState) {
-        self.players.insert(state.steam_id.clone(), state);
+        self.players.insert(state.player_id.clone(), state);
     }
 
-    pub fn get(&self, steam_id: &str) -> Option<&PlayerState> {
-        self.players.get(steam_id)
+    pub fn get(&self, player_id: &str) -> Option<&PlayerState> {
+        self.players.get(player_id)
     }
 
     pub fn all(&self) -> impl Iterator<Item = &PlayerState> {

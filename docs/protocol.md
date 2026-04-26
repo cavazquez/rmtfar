@@ -9,7 +9,7 @@ escaping is simpler with this format.
 ### Format
 
 ```text
-v1|steam_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch[|radio_los[|sr_range_m|lr_range_m]]
+v1|player_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch[|radio_los[|sr_range_m|lr_range_m]]
 ```
 
 | Field count | Meaning |
@@ -23,7 +23,7 @@ v1|steam_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|pt
 | # | Field | Type | Description |
 |---|-------|------|-------------|
 | 0 | `v1` | literal | Protocol version tag |
-| 1 | `steam_id` | string | SteamID64 of the player sending this state |
+| 1 | `player_id` | string | Arma 3 profile name of the player (`name player` in SQF) |
 | 2 | `server_id` | string | Arma `serverName` |
 | 3 | `tick` | uint64 | Mission time in ms |
 | 4 | `x` | f32 | Easting (metres) |
@@ -49,7 +49,7 @@ Pipe characters inside string fields are escaped as `\|`.
 ### Example (21 fields)
 
 ```text
-v1|76561198000000000|Servidor Test|123456|1234.5|567.8|12.3|145.0|1|1||0|1|0|43.0|1||1|1|5000|0
+v1|Cristian|Servidor Test|123456|1234.5|567.8|12.3|145.0|1|1||0|1|0|43.0|1||1|1|5000|0
 ```
 
 ### SQF call
@@ -73,10 +73,10 @@ After processing each `send` call the extension broadcasts a
   "type": "radio_state",
   "server_id": "192.168.1.100:2302",
   "tick": 123456,
-  "local_player": "76561198000000000",
+  "local_player": "Cristian",
   "players": [
     {
-      "steam_id": "76561198000000001",
+      "player_id": "Jugador2",
       "pos": [1334.5, 567.8, 12.3],
       "dir": 270.0,
       "alive": true,
@@ -106,14 +106,14 @@ After processing each `send` call the extension broadcasts a
 | `type` | string | Always `"radio_state"` |
 | `server_id` | string | Arma server identifier |
 | `tick` | uint64 | Mission time in ms |
-| `local_player` | string | SteamID64 of the local player |
+| `local_player` | string | Arma 3 profile name of the local player |
 | `players` | PlayerSummary[] | All known players including local |
 
 #### `PlayerSummary` fields
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `steam_id` | string | SteamID64 |
+| `player_id` | string | Arma 3 profile name (= Mumble nickname) |
 | `pos` | [f32;3] | Position [x, y, z] metres ASL |
 | `dir` | f32 | Heading 0–360° |
 | `alive` | bool | Player is alive |

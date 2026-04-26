@@ -138,7 +138,7 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
     } else {
         (None, None)
     };
-    let steam_id = unescape_pipe_field(&fields[1]);
+    let player_id = unescape_pipe_field(&fields[1]);
     let server_id = unescape_pipe_field(&fields[2]);
     let tick = fields[3]
         .parse::<u64>()
@@ -192,7 +192,7 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
     Ok(PlayerState {
         v: PROTOCOL_VERSION,
         msg_type: "player_state".to_string(),
-        steam_id,
+        player_id,
         server_id,
         tick,
         pos: [x, y, z],
@@ -260,7 +260,7 @@ fn handle_send(json: &[u8]) -> Result<(), String> {
     let is_local = s
         .local_id
         .as_ref()
-        .is_some_and(|id| id == &player_state.steam_id);
+        .is_some_and(|id| id == &player_state.player_id);
 
     if is_local {
         s.mumble.update(&player_state);

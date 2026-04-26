@@ -30,7 +30,7 @@ if (!isNil {_state get "radio_lr_range_m"}) then { _lrRm = _state get "radio_lr_
 
 // Formato estable (tipo TFAR, sin JSON):
 // ...|radio_los|sr_range_m|lr_range_m  (0 = usar alcance por defecto del protocolo)
-// v1|steam_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch|radio_los|sr_range_m|lr_range_m
+// v1|player_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch|radio_los|sr_range_m|lr_range_m
 private _payload = format [
     "v1|%1|%2|%3|%4|%5|%6|%7|%8|%9|%10|%11|%12|%13|%14|%15|%16|%17|%18|%19|%20",
     _uidEsc,
@@ -60,7 +60,7 @@ private _ret = "rmtfar" callExtension ["send", [_payload]];
 if (missionNamespace getVariable ["RMTFAR_logSends", false]) then {
     private _uid = _state get "uid";
     private _anyPtt = (_state get "ptt_local") || {_state get "ptt_radio_sr"} || {_state get "ptt_radio_lr"};
-    if (_uid isEqualTo getPlayerUID player && _anyPtt) then {
+    if (_uid isEqualTo name player && _anyPtt) then {
         private _t = diag_tickTime;
         private _last = missionNamespace getVariable ["RMTFAR_lastSendLog", 0];
         if (_t - _last >= 2) then {

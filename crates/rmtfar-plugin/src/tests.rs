@@ -25,7 +25,7 @@ fn make_msg(local: PlayerSummary, sender: PlayerSummary) -> RadioStateMessage {
 /// Build a minimal `PlayerSummary` for the local listener.
 fn local_player(tuned_sr_freq: &str, tuned_sr_channel: u8) -> PlayerSummary {
     PlayerSummary {
-        steam_id: LOCAL_ID.into(),
+        player_id: LOCAL_ID.into(),
         pos: [0.0, 0.0, 0.0],
         dir: 0.0,
         alive: true,
@@ -58,7 +58,7 @@ fn sender_sr(
     in_vehicle: bool,
 ) -> PlayerSummary {
     PlayerSummary {
-        steam_id: SENDER_ID.into(),
+        player_id: SENDER_ID.into(),
         pos,
         dir: 0.0,
         alive,
@@ -81,7 +81,7 @@ fn sender_sr(
 /// Build a minimal `PlayerSummary` for proximity (local) voice.
 fn sender_local(pos: [f32; 3], transmitting: bool) -> PlayerSummary {
     PlayerSummary {
-        steam_id: SENDER_ID.into(),
+        player_id: SENDER_ID.into(),
         pos,
         dir: 0.0,
         alive: true,

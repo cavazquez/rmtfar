@@ -123,7 +123,7 @@
 Formato delimitado (estable, sin JSON en SQF):
 
 ```text
-v1|steam_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch|radio_los|sr_range_m|lr_range_m
+v1|player_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|ptt_lr|sr_freq|sr_ch|lr_freq|lr_ch|radio_los|sr_range_m|lr_range_m
 ```
 
 - `radio_los`: factor 0–1 (1 = sin obstáculos entre el cliente local y ese jugador), con `lineIntersectsSurfaces` y caché.
@@ -134,7 +134,7 @@ v1|steam_id|server_id|tick|x|y|z|dir|alive|conscious|vehicle|ptt_local|ptt_sr|pt
 Ejemplo (21 campos, LR sin frecuencia en el ejemplo):
 
 ```text
-v1|76561198000000000|Servidor Test|123456|1234.5|567.8|12.3|145.0|1|1||0|1|0|43.0|1||1|1|5000|0
+v1|Cristian|Servidor Test|123456|1234.5|567.8|12.3|145.0|1|1||0|1|0|43.0|1||1|1|5000|0
 ```
 
 ### 🦀 Extension → Plugin (UDP :9501)
@@ -148,7 +148,7 @@ v1|76561198000000000|Servidor Test|123456|1234.5|567.8|12.3|145.0|1|1||0|1|0|43.
   "local_player": "Jugador2",
   "players": [
     {
-      "steam_id": "Jugador1",
+      "player_id": "Jugador1",
       "pos": [200.0, 0.0, 0.0],
       "dir": 0.0,
       "alive": true,

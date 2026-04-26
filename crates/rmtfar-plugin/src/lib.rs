@@ -137,7 +137,7 @@ impl Plugin {
         // Mumble username (--id <mumble-username> in rmtfar-test-client).
         let sender = radio.as_ref().and_then(|m| {
             let name = self.state.name_for_session(mumble_id)?;
-            m.players.iter().find(|p| p.steam_id == name)
+            m.players.iter().find(|p| p.player_id == name)
         });
 
         let Some(sender) = sender else {
@@ -157,7 +157,7 @@ impl Plugin {
             };
             if sender.radio_freq.is_empty() || sender.radio_freq != *local_freq {
                 tracing::debug!(
-                    uid = %sender.steam_id,
+                    uid = %sender.player_id,
                     sender_freq = %sender.radio_freq,
                     local_freq = %local_freq,
                     "radio freq mismatch — muted"
@@ -166,7 +166,7 @@ impl Plugin {
             }
             if sender.radio_channel != local_channel {
                 tracing::debug!(
-                    uid = %sender.steam_id,
+                    uid = %sender.player_id,
                     sender_ch = sender.radio_channel,
                     local_ch = local_channel,
                     "radio channel mismatch — muted"
@@ -174,13 +174,13 @@ impl Plugin {
                 return false;
             }
             if dist > sender.radio_range_m {
-                tracing::debug!(uid = %sender.steam_id, dist, "out of radio range — muted");
+                tracing::debug!(uid = %sender.player_id, dist, "out of radio range — muted");
                 return false;
             }
             let signal_quality = (1.0 - (dist / sender.radio_range_m).clamp(0.0, 1.0))
                 * sender.radio_los_quality.clamp(0.0, 1.0);
             tracing::debug!(
-                uid = %sender.steam_id,
+                uid = %sender.player_id,
                 dist,
                 signal_quality,
                 "radio — applying DSP"
@@ -189,22 +189,22 @@ impl Plugin {
             true
         } else if sender.transmitting_local {
             if dist > LOCAL_VOICE_RANGE_M {
-                tracing::debug!(uid = %sender.steam_id, dist, "out of local range — muted");
+                tracing::debug!(uid = %sender.player_id, dist, "out of local range — muted");
                 return false;
             }
             let volume = 1.0 - (dist / LOCAL_VOICE_RANGE_M).clamp(0.0, 1.0);
-            tracing::debug!(uid = %sender.steam_id, dist, volume, "local voice");
+            tracing::debug!(uid = %sender.player_id, dist, volume, "local voice");
             audio::apply_volume(samples, volume);
             true
         } else {
             if !sender.alive {
-                tracing::debug!(uid = %sender.steam_id, "dead — muted");
+                tracing::debug!(uid = %sender.player_id, "dead — muted");
             } else if !sender.conscious {
-                tracing::debug!(uid = %sender.steam_id, "unconscious — muted");
+                tracing::debug!(uid = %sender.player_id, "unconscious — muted");
             } else if sender.in_vehicle && !sender.transmitting_radio {
-                tracing::debug!(uid = %sender.steam_id, "in vehicle, no radio PTT — muted");
+                tracing::debug!(uid = %sender.player_id, "in vehicle, no radio PTT — muted");
             } else {
-                tracing::debug!(uid = %sender.steam_id, "not transmitting — muted");
+                tracing::debug!(uid = %sender.player_id, "not transmitting — muted");
             }
             false
         }

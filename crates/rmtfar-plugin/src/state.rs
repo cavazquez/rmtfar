@@ -5,14 +5,13 @@
 //! ## Identity mapping
 //!
 //! Mumble identifies users by a numeric session ID that changes every connection.
-//! Arma 3 / the test-client identify players by `SteamID64` (or a test name like "p1").
+//! Arma 3 / the test-client identify players by their **Arma 3 profile name**
+//! (the value of `name player` in SQF, e.g. "Cristian").
 //!
 //! We bridge the two via the Mumble username:
 //! - `mumble_onUserAdded` queries the API for the username and stores
 //!   `session_id → username` via [`PluginState::register_session`].
-//! - The bridge/test-client must register players **keyed by their Mumble username**.
-//!   In production this is the player's Arma 3 name or `SteamID64` string that
-//!   the game mod writes into the Mumble client's username field.
+//! - Each player must set their **Mumble nickname** to match their Arma 3 profile name.
 
 use rmtfar_protocol::RadioStateMessage;
 use std::collections::HashMap;
@@ -48,7 +47,6 @@ impl PluginState {
         self.session_to_name.get(&session_id).map(String::as_str)
     }
 
-    // Legacy — kept so ffi.rs compiles while we transition.
-    // Will be removed once the Arma 3 extension sends proper SteamID mappings.
-    pub fn register_identity(&mut self, _mumble_id: &str, _steam_id: String) {}
+    // Legacy stub — kept so ffi.rs compiles. Not needed with username-based mapping.
+    pub fn register_identity(&mut self, _mumble_id: &str, _player_id: String) {}
 }

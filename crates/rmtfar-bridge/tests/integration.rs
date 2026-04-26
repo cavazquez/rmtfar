@@ -72,7 +72,7 @@ fn make_state(id: &str, pos: [f32; 3], ptt_sr: bool) -> PlayerState {
     PlayerState {
         v: PROTOCOL_VERSION,
         msg_type: "player_state".into(),
-        steam_id: id.into(),
+        player_id: id.into(),
         server_id: "test-server:2302".into(),
         tick: 42,
         pos,
@@ -163,7 +163,7 @@ fn bridge_echoes_radio_state_message() {
     assert_eq!(msg.players.len(), 1);
 
     let player = &msg.players[0];
-    assert_eq!(player.steam_id, "p1");
+    assert_eq!(player.player_id, "p1");
     assert!(player.transmitting_radio, "SR PTT should be active");
     assert_eq!(player.radio_type, "sr");
     assert_eq!(player.radio_freq, "43.0");
@@ -197,7 +197,7 @@ fn bridge_tracks_multiple_players() {
 
         if let Ok((len, _)) = plugin_sock.recv_from(&mut buf) {
             if let Ok(m) = serde_json::from_slice::<RadioStateMessage>(&buf[..len]) {
-                if m.players.iter().any(|p| p.steam_id == "p2") {
+                if m.players.iter().any(|p| p.player_id == "p2") {
                     break m;
                 }
             }
@@ -215,7 +215,7 @@ fn bridge_tracks_multiple_players() {
         msg.players.len()
     );
 
-    let p2 = msg.players.iter().find(|p| p.steam_id == "p2").unwrap();
+    let p2 = msg.players.iter().find(|p| p.player_id == "p2").unwrap();
     assert!(!p2.transmitting_radio, "p2 is not pressing PTT");
     assert_eq!(p2.tuned_sr_freq, "43.0");
 }
@@ -242,7 +242,7 @@ fn bridge_reflects_dead_player() {
         Duration::from_secs(5),
     );
 
-    let player = msg.players.iter().find(|p| p.steam_id == "p1").unwrap();
+    let player = msg.players.iter().find(|p| p.player_id == "p1").unwrap();
     assert!(!player.alive);
     assert!(!player.transmitting_radio, "dead player must not transmit");
 }
@@ -269,7 +269,7 @@ fn bridge_vehicle_blocks_local_ptt() {
         Duration::from_secs(5),
     );
 
-    let player = msg.players.iter().find(|p| p.steam_id == "p1").unwrap();
+    let player = msg.players.iter().find(|p| p.player_id == "p1").unwrap();
     assert!(player.in_vehicle);
     assert!(
         !player.transmitting_local,
@@ -305,7 +305,7 @@ fn bridge_lr_radio_state() {
         Duration::from_secs(5),
     );
 
-    let player = msg.players.iter().find(|p| p.steam_id == "p1").unwrap();
+    let player = msg.players.iter().find(|p| p.player_id == "p1").unwrap();
     assert!(player.transmitting_radio);
     assert_eq!(player.radio_type, "lr");
     assert_eq!(player.radio_freq, "30.0");

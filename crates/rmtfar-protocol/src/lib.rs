@@ -62,8 +62,8 @@ pub struct PlayerState {
     pub v: u8,
     #[serde(rename = "type")]
     pub msg_type: String,
-    /// `SteamID64` of the local player.
-    pub steam_id: String,
+    /// Arma 3 profile name of this player (`name player` in SQF).
+    pub player_id: String,
     /// `serverName` value from SQF (unique per session).
     pub server_id: String,
     /// Arma 3 game tick.
@@ -136,7 +136,7 @@ impl PlayerState {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[allow(clippy::struct_excessive_bools)] // Protocol fields, not flags
 pub struct PlayerSummary {
-    pub steam_id: String,
+    pub player_id: String,
     /// Position [x, y, z] in metres (ASL).
     pub pos: [f32; 3],
     pub dir: f32,
@@ -227,7 +227,7 @@ impl PlayerSummary {
         };
 
         Self {
-            steam_id: state.steam_id.clone(),
+            player_id: state.player_id.clone(),
             pos: state.pos,
             dir: state.dir,
             alive: state.alive,
@@ -258,7 +258,7 @@ pub struct RadioStateMessage {
     pub msg_type: String,
     pub server_id: String,
     pub tick: u64,
-    /// `SteamID64` of the local player (the one running the bridge).
+    /// Arma 3 profile name of the local player (the one running the bridge/extension).
     pub local_player: String,
     pub players: Vec<PlayerSummary>,
 }
@@ -280,8 +280,8 @@ impl RadioStateMessage {
         }
     }
 
-    pub fn find_player(&self, steam_id: &str) -> Option<&PlayerSummary> {
-        self.players.iter().find(|p| p.steam_id == steam_id)
+    pub fn find_player(&self, player_id: &str) -> Option<&PlayerSummary> {
+        self.players.iter().find(|p| p.player_id == player_id)
     }
 
     pub fn local(&self) -> Option<&PlayerSummary> {
@@ -332,7 +332,7 @@ mod tests {
         PlayerState {
             v: 1,
             msg_type: "player_state".into(),
-            steam_id: "76561198000000000".into(),
+            player_id: "76561198000000000".into(),
             server_id: "192.168.1.100:2302".into(),
             tick: 1000,
             pos: [100.0, 50.0, 10.0],
@@ -354,7 +354,7 @@ mod tests {
         let state = sample_state();
         let json = serde_json::to_string(&state).unwrap();
         let back: PlayerState = serde_json::from_str(&json).unwrap();
-        assert_eq!(back.steam_id, state.steam_id);
+        assert_eq!(back.player_id, state.player_id);
         // Float fields: compare element-wise with tolerance
         for (a, b) in back.pos.iter().zip(state.pos.iter()) {
             assert!((a - b).abs() < f32::EPSILON, "pos mismatch");
@@ -412,11 +412,11 @@ mod tests {
         let msg = RadioStateMessage::new(
             state.server_id.clone(),
             state.tick,
-            state.steam_id.clone(),
+            state.player_id.clone(),
             vec![summary],
         );
         assert!(msg.local().is_some());
-        assert_eq!(msg.local().unwrap().steam_id, state.steam_id);
+        assert_eq!(msg.local().unwrap().player_id, state.player_id);
     }
 
     #[test]
@@ -425,7 +425,7 @@ mod tests {
         let json = r#"{
             "v": 1,
             "type": "player_state",
-            "steam_id": "123",
+            "player_id": "123",
             "server_id": "srv",
             "tick": 42,
             "pos": [0.0, 0.0, 0.0],
@@ -436,7 +436,7 @@ mod tests {
             "radio_lr": null
         }"#;
         let state: PlayerState = serde_json::from_str(json).unwrap();
-        assert_eq!(state.steam_id, "123");
+        assert_eq!(state.player_id, "123");
         assert!(!state.ptt_local);
     }
 
