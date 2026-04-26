@@ -2,3 +2,4 @@
 /dist/
 **/*.dll.bak
 Cargo.lock
+mumble-server.log

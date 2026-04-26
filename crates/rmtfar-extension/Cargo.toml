@@ -12,4 +12,5 @@ crate-type = ["cdylib"]
 
 [dependencies]
 rmtfar-protocol = { path = "../rmtfar-protocol" }
-serde_json.workspace = true
+
+# serde_json is not needed: the extension forwards raw JSON bytes from SQF as-is
