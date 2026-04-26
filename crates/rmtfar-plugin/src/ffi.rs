@@ -318,15 +318,43 @@ pub unsafe extern "C" fn mumble_onServerDisconnected(_conn: mumble_connection_t)
 }
 
 /// Fired by Mumble whenever any user starts or stops talking.
-/// `talking_state` values: 0 = passive, 1 = talking, 2 = shouting, 3 = whispering.
-/// This is the simplest callback to verify that Mumble is calling our plugin at all.
+/// `talking_state`: 0 = passive, 1 = talking, 2 = shouting, 3 = whispering.
+///
+/// We use this as a **lazy identity registration** point: the first time we see
+/// a user talk we query the Mumble API for their username and cache the mapping.
+/// This is more reliable than `mumble_onUserAdded` (whose Qt signal connection
+/// varies across Mumble builds).
 ///
 /// # Safety
 #[no_mangle]
 pub unsafe extern "C" fn mumble_onUserTalkingStateChanged(
-    _conn: mumble_connection_t,
+    conn: mumble_connection_t,
     user_id: mumble_userid_t,
     talking_state: c_int,
 ) {
+    // Lazy registration: look up name the first time we see this user talk.
+    if plugin().state.name_for_session(user_id).is_none() {
+        if let (Some(get_user_name), Some(free_memory)) =
+            (API_GET_USER_NAME.get(), API_FREE_MEMORY.get())
+        {
+            let mut name_ptr: *const c_char = std::ptr::null();
+            let rc = get_user_name(plugin_id(), conn, user_id, std::ptr::addr_of_mut!(name_ptr));
+            if rc == MUMBLE_STATUS_OK && !name_ptr.is_null() {
+                if let Ok(name) = std::ffi::CStr::from_ptr(name_ptr).to_str() {
+                    let name = name.to_string();
+                    tracing::info!(user_id, %name, "RMTFAR: lazy identity registered");
+                    plugin().state.register_session(user_id, name);
+                }
+                free_memory(plugin_id(), name_ptr.cast::<c_void>());
+            } else {
+                tracing::warn!(
+                    user_id,
+                    rc,
+                    "RMTFAR: getUserName failed in talking callback"
+                );
+            }
+        }
+    }
+
     tracing::info!(user_id, talking_state, "RMTFAR: talking state changed");
 }
