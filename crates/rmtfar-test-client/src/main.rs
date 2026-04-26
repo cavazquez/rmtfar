@@ -314,6 +314,88 @@ fn next_arg(args: &[String], i: &mut usize) -> Result<String> {
     Ok(v)
 }
 
+#[cfg(test)]
+mod tests {
+    use super::parse_args;
+
+    fn args(v: &[&str]) -> Vec<String> {
+        std::iter::once("rmtfar-test-client")
+            .chain(v.iter().copied())
+            .map(String::from)
+            .collect()
+    }
+
+    #[test]
+    fn defaults_are_sane() {
+        let cfg = parse_args(&args(&[])).unwrap();
+        assert_eq!(cfg.steam_id, "76561198000000001");
+        assert_eq!(cfg.freq, "152.000");
+        assert_eq!(cfg.channel, 1);
+        assert!(cfg.alive);
+        assert!(cfg.conscious);
+        assert!(cfg.vehicle.is_empty());
+        assert!(!cfg.ptt_local);
+        assert!(!cfg.ptt_radio_sr);
+        assert!(!cfg.ptt_radio_lr);
+    }
+
+    #[test]
+    fn id_and_pos_parsed() {
+        let cfg = parse_args(&args(&["--id", "Jugador1", "--pos", "100,0,200"])).unwrap();
+        assert_eq!(cfg.steam_id, "Jugador1");
+        assert_eq!(cfg.base_pos, [100.0, 0.0, 200.0]);
+    }
+
+    #[test]
+    fn ptt_flags() {
+        let cfg = parse_args(&args(&["--ptt-local", "--ptt-radio", "--ptt-radio-lr"])).unwrap();
+        assert!(cfg.ptt_local);
+        assert!(cfg.ptt_radio_sr);
+        assert!(cfg.ptt_radio_lr);
+    }
+
+    #[test]
+    fn dead_and_unconscious() {
+        let dead = parse_args(&args(&["--dead"])).unwrap();
+        assert!(!dead.alive);
+
+        let unconscious = parse_args(&args(&["--unconscious"])).unwrap();
+        assert!(!unconscious.conscious);
+    }
+
+    #[test]
+    fn radio_range_override() {
+        let cfg = parse_args(&args(&["--radio-range", "500"])).unwrap();
+        assert_eq!(cfg.radio_range_m, Some(500.0));
+    }
+
+    #[test]
+    fn lr_radio_args() {
+        let cfg =
+            parse_args(&args(&["--freq-lr", "30.0", "--channel-lr", "2", "--ptt-radio-lr"]))
+                .unwrap();
+        assert_eq!(cfg.freq_lr, "30.0");
+        assert_eq!(cfg.channel_lr, 2);
+        assert!(cfg.ptt_radio_lr);
+    }
+
+    #[test]
+    fn vehicle_arg() {
+        let cfg = parse_args(&args(&["--vehicle", "B_MRAP_01_F"])).unwrap();
+        assert_eq!(cfg.vehicle, "B_MRAP_01_F");
+    }
+
+    #[test]
+    fn unknown_arg_errors() {
+        assert!(parse_args(&args(&["--does-not-exist"])).is_err());
+    }
+
+    #[test]
+    fn bad_pos_errors() {
+        assert!(parse_args(&args(&["--pos", "1,2"])).is_err());
+    }
+}
+
 fn print_help() {
     println!("rmtfar-test-client — Simulate an Arma 3 player for RMTFAR testing\n");
     println!("OPTIONS:");

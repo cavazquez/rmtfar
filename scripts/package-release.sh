@@ -1,6 +1,16 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: GPL-3.0
-# package-release.sh - Empaqueta el release completo
+# package-release.sh - Empaqueta el release completo localmente.
+#
+# Nota: en CI los releases se publican automáticamente en GitHub Actions
+# al pushear un tag v*. Este script es para empaquetar manualmente.
+#
+# Requisitos:
+#   sudo apt install mingw-w64 armake2
+#   rustup target add x86_64-pc-windows-gnu
+#
+# Uso:
+#   ./scripts/package-release.sh
 
 set -euo pipefail
 
@@ -11,38 +21,50 @@ cd "$REPO_ROOT"
 
 VERSION=$(cargo metadata --no-deps --format-version 1 | \
     python3 -c "import sys,json; pkgs=json.load(sys.stdin)['packages']; \
-    print(next(p['version'] for p in pkgs if p['name']=='rmtfar-bridge'))")
+    print(next(p['version'] for p in pkgs if p['name']=='rmtfar-protocol'))")
 
 DIST="dist/rmtfar-v$VERSION"
-mkdir -p "$DIST"
+mkdir -p "$DIST/@rmtfar/addons" "$DIST/bin"
 
 echo "=== Empaquetando RMTFAR v$VERSION ==="
 
-# Build release
-RELEASE=1 bash scripts/build-all.sh
+# ── Compilar binarios ────────────────────────────────────────────────────────
+
+echo "--- Extension DLL (Windows) ---"
 RELEASE=1 bash scripts/build-extension.sh
+
+echo "--- Plugin DLL (Windows) ---"
 TARGET=windows RELEASE=1 bash scripts/build-plugin.sh
+
+echo "--- Bridge Windows ---"
 RELEASE=1 bash scripts/build-bridge-windows.sh
+
+echo "--- Plugin + bridge Linux ---"
+RELEASE=1 bash scripts/build-all.sh
+
+echo "--- PBO ---"
 bash scripts/pack-pbo.sh
 
-# Copiar binarios
-cp target/x86_64-pc-windows-gnu/release/rmtfar_x64.dll \
-    arma-mod/@rmtfar/rmtfar_x64.dll 2>/dev/null || true
+# ── Copiar binarios ──────────────────────────────────────────────────────────
 
-cp -r arma-mod/@rmtfar "$DIST/"
+# Extension: Cargo genera rmtfar.dll; ya fue renombrada por build-extension.sh
+cp arma-mod/@rmtfar/rmtfar_x64.dll     "$DIST/@rmtfar/"
+cp arma-mod/@rmtfar/rmtfar_plugin.dll  "$DIST/@rmtfar/"
+cp arma-mod/@rmtfar/addons/rmtfar.pbo  "$DIST/@rmtfar/addons/" 2>/dev/null || \
+    cp -r arma-mod/@rmtfar/addons/rmtfar "$DIST/@rmtfar/addons/"
 
-# Bridge y plugin para Linux
-mkdir -p "$DIST/bin"
-cp target/release/rmtfar-bridge "$DIST/bin/" 2>/dev/null || true
-cp target/release/librmtfar_plugin.so "$DIST/bin/" 2>/dev/null || true
+# Bridge Windows (build-bridge-windows.sh lo copia a @rmtfar/)
+cp arma-mod/@rmtfar/rmtfar-bridge.exe  "$DIST/@rmtfar/" 2>/dev/null || true
 
-# Bridge para Windows (ya copiado a @rmtfar por build-bridge-windows.sh)
-echo "Bridge Windows incluido en $DIST/@rmtfar/rmtfar-bridge.exe"
+# Linux
+cp target/release/librmtfar_plugin.so  "$DIST/bin/" 2>/dev/null || true
+cp target/release/rmtfar-bridge        "$DIST/bin/" 2>/dev/null || true
+cp target/release/rmtfar-test-client   "$DIST/bin/" 2>/dev/null || true
 
-cp LICENSE "$DIST/"
-cp README.md "$DIST/"
+cp LICENSE README.md "$DIST/"
 
-# Crear zip
+# ── Crear zip ────────────────────────────────────────────────────────────────
+mkdir -p dist
 cd dist
 zip -r "rmtfar-v$VERSION.zip" "rmtfar-v$VERSION/"
 echo ""

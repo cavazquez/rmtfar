@@ -1,0 +1,40 @@
+[changelog]
+header = "# Changelog\n\nAll notable changes to RMTFAR are documented here.\n"
+body = """
+{% if version %}\
+    ## [{{ version | trim_start_matches(pat="v") }}] — {{ timestamp | date(format="%Y-%m-%d") }}
+{% else %}\
+    ## [Unreleased]
+{% endif %}\
+{% for group, commits in commits | group_by(attribute="group") %}
+    ### {{ group | upper_first }}
+    {% for commit in commits %}
+        - {% if commit.scope %}**{{ commit.scope }}**: {% endif %}{{ commit.message | upper_first }}\
+    {% endfor %}
+{% endfor %}\n
+"""
+footer = ""
+trim = true
+
+[git]
+conventional_commits = true
+filter_unconventional = true
+split_commits = false
+commit_preprocessors = []
+commit_parsers = [
+    { message = "^feat",     group = "Novedades" },
+    { message = "^fix",      group = "Correcciones" },
+    { message = "^perf",     group = "Rendimiento" },
+    { message = "^refactor", group = "Refactoring" },
+    { message = "^test",     group = "Tests" },
+    { message = "^ci",       group = "CI/CD" },
+    { message = "^docs",     group = "Documentación" },
+    { message = "^chore",    group = "Mantenimiento", skip = false },
+    { message = "^.*",       group = "Otros" },
+]
+filter_commits = false
+tag_pattern = "v[0-9].*"
+skip_tags = ""
+ignore_tags = ""
+topo_order = false
+sort_commits = "newest"

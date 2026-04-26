@@ -2,81 +2,80 @@
 
 ## Prerequisites
 
-- Rust 1.75+ (`rustup update stable`)
-- For Windows targets: `cargo install cross` + Docker
+- Rust stable (`rustup update stable`)
+- For Windows DLLs: `sudo apt install mingw-w64` + `rustup target add x86_64-pc-windows-gnu`
+- For PBO packaging: `cargo install armake2`
 
-## Quick Start (Linux bridge + test client)
+## Quick Start — Linux (bridge + plugin)
 
 ```bash
-cargo build --release -p rmtfar-bridge
-cargo build --release -p rmtfar-test-client
+cargo build --release -p rmtfar-bridge -p rmtfar-plugin -p rmtfar-test-client
+# Or use the helper script (compiles + runs tests):
+RELEASE=1 ./scripts/build-all.sh
 ```
 
-## Building the Arma 3 Extension DLL (Windows target)
+Binaries land in `target/release/`.
+
+## Building the Arma 3 Extension DLL (Windows)
 
 ```bash
-# Install cross-compilation toolchain
-rustup target add x86_64-pc-windows-gnu
-# Or use cross (recommended, handles all deps automatically):
-cargo install cross
-
-scripts/build-extension.sh
+RELEASE=1 ./scripts/build-extension.sh
 # Output: arma-mod/@rmtfar/rmtfar_x64.dll
 ```
 
-## Building the Mumble Plugin DLL (Windows target)
+## Building the Mumble Plugin DLL (Windows)
 
 ```bash
-scripts/build-plugin.sh
-# Output: target/x86_64-pc-windows-gnu/release/rmtfar_plugin.dll
+TARGET=windows RELEASE=1 ./scripts/build-plugin.sh
+# Output: arma-mod/@rmtfar/rmtfar_plugin.dll
 # Install to: %APPDATA%\Mumble\Plugins\
 ```
+
+## Packing the SQF mod (PBO)
+
+```bash
+./scripts/pack-pbo.sh
+# Output: arma-mod/@rmtfar/addons/rmtfar.pbo
+```
+
+Requires `armake2` (`cargo install armake2`).
 
 ## Running Tests
 
 ```bash
 cargo test --workspace
+# Or with the quality gate (fmt + clippy + tests + doc + SQF + audit):
+./check.sh
 ```
 
-## Manual Integration Test
+## Manual Integration Test (Linux)
 
 Open three terminals:
 
 **Terminal 1 — bridge:**
 ```bash
-./target/release/rmtfar-bridge
+cargo run --release -p rmtfar-bridge -- --local-id Jugador2
 ```
 
-**Terminal 2 — player A (proximity):**
+**Terminal 2 — Jugador2 (escucha, sin PTT):**
 ```bash
-./target/release/rmtfar-test-client --steam-id 111 --pos 0,0,10 --ptt-local
+cargo run --release -p rmtfar-test-client -- --id Jugador2 --freq 43.0
 ```
 
-**Terminal 3 — player B (nearby):**
+**Terminal 3 — Jugador1 (transmite):**
 ```bash
-./target/release/rmtfar-test-client --steam-id 222 --pos 30,0,10
+cargo run --release -p rmtfar-test-client -- \
+  --id Jugador1 --freq 43.0 --ptt-radio --pos 200,0,0 --radio-range 500
 ```
 
-Player A and B should hear each other through Mumble positional audio.
+See the full Linux testing guide in the [README](../README.md#-cómo-probar-en-linux-sin-arma-3).
 
-**Radio test (3 clients):**
-```bash
-# Player A on freq 152.000, transmitting
-./target/release/rmtfar-test-client --steam-id 111 --freq 152.000 --ptt-radio
-
-# Player B on same freq — should hear A
-./target/release/rmtfar-test-client --steam-id 222 --freq 152.000
-
-# Player C on different freq — should NOT hear A
-./target/release/rmtfar-test-client --steam-id 333 --freq 155.000
-```
-
-## Release Packaging
+## Release Packaging (local)
 
 ```bash
-scripts/build-all.sh
-scripts/build-extension.sh
-scripts/build-plugin.sh
-scripts/package-release.sh
-# Output: dist/rmtfar-0.1.0.zip
+./scripts/package-release.sh
+# Output: dist/rmtfar-v<version>.zip
 ```
+
+CI publishes releases automatically when a `v*` tag is pushed.
+See [`.github/workflows/release.yml`](../.github/workflows/release.yml).
