@@ -6,6 +6,7 @@ params [["_direction", "next", [""]]];
 
 private _active = toUpper (missionNamespace getVariable ["RMTFAR_activeRadio", "SR"]);
 private _cur = if (_active isEqualTo "LR") then { RMTFAR_radioStereoLR } else { RMTFAR_radioStereo };
+_cur = 0 max _cur min 2;
 private _delta = if (toLower _direction isEqualTo "prev") then { -1 } else { 1 };
 
 private _next = (_cur + _delta) mod 3;

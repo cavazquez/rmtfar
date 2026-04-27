@@ -14,3 +14,5 @@ if (_active isEqualTo "LR") then {
     [format ["Codigo SR: %1", _code], true] call CBA_fnc_notify;
     diag_log format ["RMTFAR: active SR code set to %1", _code];
 };
+
+[] call RMTFAR_fnc_saveProfileSettings;

@@ -10,10 +10,14 @@ if (!hasInterface) exitWith {};
 [] spawn {
     waitUntil { !isNull player && hasInterface };
 
+    private _hudTimeout = time + 120;
     while { true } do {
         waitUntil {
-            RMTFAR_enabled
-            && {missionNamespace getVariable ["RMTFAR_showRadioHud", true]}
+            (RMTFAR_enabled && {missionNamespace getVariable ["RMTFAR_showRadioHud", true]})
+            || {time > _hudTimeout}
+        };
+        if (!(RMTFAR_enabled && {missionNamespace getVariable ["RMTFAR_showRadioHud", true]})) exitWith {
+            diag_log "RMTFAR HUD: timeout esperando RMTFAR_enabled, hilo HUD terminado.";
         };
 
         RMTFAR_HUD_LAYER cutRsc ["Default", "PLAIN", -1, false];
