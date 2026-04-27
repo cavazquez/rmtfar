@@ -91,9 +91,8 @@ impl Plugin {
             .with_writer(std::io::stderr)
             .try_init();
 
-        let log_enabled = std::env::var("RMTFAR_UDP_LOG").map_or(true, |v| {
-            v != "0" && !v.eq_ignore_ascii_case("false")
-        });
+        let log_enabled = std::env::var("RMTFAR_UDP_LOG")
+            .map_or(true, |v| v != "0" && !v.eq_ignore_ascii_case("false"));
 
         if log_enabled {
             let path = udp_recv_log_path();
@@ -188,9 +187,8 @@ impl Plugin {
             }
         }
         self.map_fail_throttle.insert(mumble_id, now);
-        self.map_fail_throttle.retain(|_, t| {
-            now.saturating_duration_since(*t) < 2 * Duration::from_secs(60)
-        });
+        self.map_fail_throttle
+            .retain(|_, t| now.saturating_duration_since(*t) < 2 * Duration::from_secs(60));
 
         let Some(ref mut w) = self.udp_recv_log else {
             return;
