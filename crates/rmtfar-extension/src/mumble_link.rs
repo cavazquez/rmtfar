@@ -61,7 +61,7 @@ mod win32 {
     pub type HANDLE = *mut c_void;
     pub const FILE_MAP_ALL_ACCESS: u32 = 0x000F001F;
 
-    extern "system" {
+    unsafe extern "system" {
         pub fn OpenFileMappingW(
             desired_access: u32,
             inherit_handle: i32,
