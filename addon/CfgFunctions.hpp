@@ -4,6 +4,7 @@ class CfgFunctions {
             file = "\rmtfar\addons\rmtfar\functions";
 
             class init            { preInit = 1; };
+            class cbaKeybindHasUserKeys {};
             class loop            {};
             class getPlayerState  {};
             class sendState       {};

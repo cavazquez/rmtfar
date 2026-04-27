@@ -23,6 +23,6 @@ missionNamespace setVariable ["RMTFAR_radioSquelchEnabled", true];
 RMTFAR_radioSrRangeM = 5000;
 RMTFAR_radioLrRangeM = 20000;
 
-// Teclas por defecto (configurables via CBA Settings)
-RMTFAR_keyPttLocal   = 0x3A;  // Caps Lock
-RMTFAR_keyPttRadioSR = 0x14;  // T
+// Referencia: defaults que fn_init solo aplica si CBA no tiene teclas reales para esa acción.
+RMTFAR_keyPttLocal   = 0;     // sin tecla
+RMTFAR_keyPttRadioSR = 0x3A;  // Caps Lock

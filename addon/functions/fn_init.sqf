@@ -5,12 +5,16 @@
 if (!hasInterface) exitWith {};
 
 // --- CBA Keybinds ---
+// Si el jugador ya tiene teclas guardadas para la acción, no se pisa el perfil (_overwrite false).
+// Si no hay teclas reales (nueva instalación o solo KEYBIND_NULL), se aplican defaults del mod.
+private _owLocal = !(["RMTFAR", "PTTLocal"] call RMTFAR_fnc_cbaKeybindHasUserKeys);
+private _owSR = !(["RMTFAR", "PTTRadioSR"] call RMTFAR_fnc_cbaKeybindHasUserKeys);
 
 ["RMTFAR", "PTTLocal", "PTT - Voz Directa", {
     RMTFAR_pttLocal = true;
 }, {
     RMTFAR_pttLocal = false;
-}, [0x3A, [false, false, false]]] call CBA_fnc_addKeybind;
+}, [0, [false, false, false]], false, 0, _owLocal] call CBA_fnc_addKeybind;
 
 ["RMTFAR", "PTTRadioSR", "PTT - Radio (Corto Alcance)", {
     RMTFAR_pttRadioSR = true;
@@ -18,7 +22,7 @@ if (!hasInterface) exitWith {};
 }, {
     RMTFAR_pttRadioSR = false;
     ["off"] call RMTFAR_fnc_playRadioSquelch;
-}, [0x14, [false, false, false]]] call CBA_fnc_addKeybind;
+}, [0x3A, [false, false, false]], false, 0, _owSR] call CBA_fnc_addKeybind;
 
 // --- DEBUG / test en Windows (Ctrl + Shift + F7–F10) — ver docs/windows-ghost-test.md
 ["RMTFAR", "DebugToggle", "DEBUG: modo test on/off", {
