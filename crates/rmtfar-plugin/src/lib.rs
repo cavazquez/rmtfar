@@ -188,7 +188,7 @@ impl Plugin {
         }
         self.map_fail_throttle.insert(mumble_id, now);
         self.map_fail_throttle
-            .retain(|_, t| now.saturating_duration_since(*t) < 2 * Duration::from_secs(60));
+            .retain(|_, t| now.saturating_duration_since(*t) < Duration::from_mins(2));
 
         let Some(ref mut w) = self.udp_recv_log else {
             return;

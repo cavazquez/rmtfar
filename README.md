@@ -6,7 +6,7 @@
 
 [![CI](https://github.com/cavazquez/rmtfar/actions/workflows/ci.yml/badge.svg)](https://github.com/cavazquez/rmtfar/actions/workflows/ci.yml)
 [![Coverage](https://codecov.io/gh/cavazquez/rmtfar/graph/badge.svg)](https://codecov.io/gh/cavazquez/rmtfar)
-[![Rust](https://img.shields.io/badge/Rust-1.75+-f74c00?logo=rust&logoColor=white)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/Rust-1.91+-f74c00?logo=rust&logoColor=white)](https://www.rust-lang.org/)
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](LICENSE)
 [![Mumble](https://img.shields.io/badge/Mumble-1.5%2B-darkgreen?logo=mumble&logoColor=white)](https://www.mumble.info/)
 [![Arma 3](https://img.shields.io/badge/Arma_3-SQF-8B5C14)](https://store.steampowered.com/app/107410/Arma_3/)
@@ -177,7 +177,8 @@ v1|Cristian|Servidor Test|123456|1234.5|567.8|12.3|145.0|1|1||0|1|0|43.0|1||1|1|
 
 ```
 rmtfar/
-├── 📄 Cargo.toml                  # Workspace de Rust
+├── 📄 Cargo.toml                  # Workspace de Rust (incl. rust-version 1.91)
+├── 📄 rust-toolchain.toml         # Pin 1.91.0 + rustfmt + clippy (alineado con CI)
 ├── 📄 LICENSE                     # GPLv3
 ├── 📄 README.md
 ├── 📄 mod.cpp                     # Metadatos del mod (@rmtfar) — se copia al paquete de release
@@ -590,6 +591,8 @@ DEBUG rmtfar_plugin: out of local range — muted uid=Jugador1 dist=60.0
 cargo fmt --all   # Formateo automático
 cargo test --workspace
 ```
+
+**MSRV:** Rust **1.91+** (`rust-toolchain.toml` fija `1.91.0` con rustfmt y clippy; `workspace.package.rust-version` en `Cargo.toml`). Hace falta para APIs como `Duration::from_mins` y para que el mismo Clippy que en CI no falle por `duration_suboptimal_units`.
 
 El CI corre en cada push: formato, clippy, **60 tests automatizados** (unitarios + integración) y build del plugin/bridge para Linux.
 
