@@ -41,7 +41,7 @@
 │  🎮 Arma 3 Client                        │
 │  ┌──────────────────────┐                │
 │  │ SQF Scripts (@rmtfar)│                │
-│  │  getPos, getDir, PTT │                │
+│  │  getPos, getDir, PTT, HUD │           │
 │  │  allPlayers broadcast│                │
 │  └──────────┬───────────┘                │
 │             │ callExtension              │
@@ -102,7 +102,8 @@
 | **Extension DLL para Arma 3** — cross-compile Windows x64 | ✅ | mingw-w64 (`x86_64-pc-windows-gnu`), ~200 KB release |
 | **Plugin Mumble para Windows** — `rmtfar_plugin.dll` | ✅ | mingw-w64, 18 exports Mumble, ~800 KB release |
 | **PBO packing** — scripts SQF empaquetados para Arma 3 | ✅ | `armake2`, con `$PBOPREFIX$` |
-| **CBA keybinds** — PTT local, radio SR y LR | ✅ | `CBA_fnc_addKeybind`, XEH pre/postInit |
+| **CBA keybinds** — PTT voz directa + radio SR; defaults solo si el perfil no tiene teclas | ✅ | `fn_cbaKeybindHasUserKeys`, `CBA_fnc_addKeybind` |
+| **HUD in-game** — SR/LR, canales, indicadores de PTT | ✅ | `CfgRscTitles` + `fn_hudStart` (capa 23) |
 
 ### 🗺️ Fases de desarrollo
 
@@ -185,6 +186,7 @@ rmtfar/
 ├── 📂 addon/                      # Fuentes SQF del addon (se empaquetan en rmtfar.pbo)
 │   ├── $PBOPREFIX$
 │   ├── config.cpp
+│   ├── CfgRscTitles.hpp           # HUD in-game (RscTitles)
 │   ├── functions/
 │   └── …
 ├── 📂 .github/
@@ -230,7 +232,7 @@ rmtfar/
 
 | Mod | Requerido | Uso |
 |---|---|---|
-| [CBA_A3](https://github.com/CBATeam/CBA_A3) | Recomendado | Keybinds y settings |
+| [CBA_A3](https://github.com/CBATeam/CBA_A3) | Sí (`cba_main`) | Keybinds (PTT) |
 | [ACE3](https://github.com/acemod/ACE3) | Opcional | Estado inconsciente: lee `ACE_isUnconscious` via `getVariable` (default `false` sin ACE3, sin errores) |
 
 ### 🎙️ Voz
@@ -343,11 +345,14 @@ En el repositorio, las fuentes del addon están en **`addon/`** (SQF + `config.c
 ```
 addon/
 ├── $PBOPREFIX$                 # Prefijo interno: rmtfar\addons\rmtfar
-├── config.cpp                  # CfgPatches + CBA Extended Event Handlers
-├── XEH_preInit.sqf             # Inicialización de variables globales
-├── XEH_postInit.sqf            # Init de extension + loop principal
+├── config.cpp                  # CfgPatches + CBA XEH + CfgRMTFAR + include CfgRscTitles
+├── CfgRscTitles.hpp            # Recurso RMTFAR_RadioHud (HUD de radio en pantalla)
+├── XEH_preInit.sqf             # Variables globales + flags (p.ej. RMTFAR_showRadioHud)
+├── XEH_postInit.sqf            # Extension + HUD + loop principal
 └── functions/
-    ├── fn_init.sqf             # CBA keybinds (PTT local, SR, LR)
+    ├── fn_init.sqf             # CBA keybinds (PTT voz directa, radio SR)
+    ├── fn_cbaKeybindHasUserKeys.sqf  # ¿Hay teclas reales en el perfil de CBA? (no pisar defaults)
+    ├── fn_hudStart.sqf         # HUD RscTitles: frecuencias y estado PTT
     ├── fn_loop.sqf             # Loop: recolecta estado, broadcast, envía a extension
     ├── fn_getPlayerState.sqf   # Lee pos/dir/alive/radio de un jugador
     └── fn_sendState.sqf        # Serializa payload v1 y llama callExtension
@@ -357,13 +362,28 @@ El **plugin de Mumble para Windows** (`rmtfar_plugin.dll`) no va dentro de `@rmt
 
 ### Keybinds (CBA)
 
-| Acción | Default | Variable |
-|---|---|---|
-| PTT Local (proximidad) | Caps Lock | `RMTFAR_pttLocal` |
-| PTT Radio SR | Tab | `RMTFAR_pttRadioSR` |
-| PTT Radio LR | Ctrl+Tab | `RMTFAR_pttRadioLR` |
+Se registran dos acciones en *Configuración → Controles → Configurar addons → RMTFAR*:
 
-Los keybinds se configuran en *Configuración → Controles → Addons → RMTFAR*.
+| Acción | Variable SQF | Comportamiento del default |
+|---|---|---|
+| **PTT - Voz directa** | `RMTFAR_pttLocal` | Si en el perfil de CBA **no** hay ninguna tecla “real” para esa acción, el mod aplica **sin tecla** (podés asignar una después). Si ya configuraste teclas, **no se tocan**. |
+| **PTT - Radio (corto alcance)** | `RMTFAR_pttRadioSR` | Si no hay teclas guardadas, el mod propone **Bloq Mayús (Caps Lock)**. Si ya hay teclas, **no se tocan**. |
+
+La comprobación usa el registro `cba_keybinding_registry_v3` del perfil (misma regla que CBA: tecla con código `> 1`). Ver `fn_cbaKeybindHasUserKeys.sqf`.
+
+**Radio LR:** el protocolo y el estado incluyen `RMTFAR_pttRadioLR`, pero **no hay keybind CBA** para LR en la versión actual; se puede activar por misión/script (p. ej. `RMTFAR_fnc_radioTransmit` solo cubre SR; para LR habría que asignar `RMTFAR_pttRadioLR` desde la misión si hace falta).
+
+### HUD en pantalla
+
+Con la extensión cargada y `RMTFAR_enabled`, el mod muestra un panel discreto (abajo a la derecha) con **SR** (frecuencia y canal), **LR** si hay frecuencia LR, e indicadores de **TX** (radio SR/LR y voz directa). No sustituye ni integra la UI de **TFAR**; si cargás ambos mods podés tener overlays distintos.
+
+Para **ocultar** el panel:
+
+```sqf
+missionNamespace setVariable ["RMTFAR_showRadioHud", false];
+```
+
+Para volver a mostrarlo: `true` (valor por defecto en `XEH_preInit.sqf`).
 
 ---
 
