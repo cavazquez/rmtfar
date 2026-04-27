@@ -16,6 +16,8 @@ diag_log format ["RMTFAR: Extension v%1 found", _version];
 
 RMTFAR_enabled = true;
 
+[] call RMTFAR_fnc_hudStart;
+
 [] call RMTFAR_fnc_resolveRadioModel;
 player addEventHandler ["InventoryClosed", { [] spawn { sleep 0.05; [] call RMTFAR_fnc_resolveRadioModel }; }];
 player addEventHandler ["Respawn", { [] spawn { sleep 0.1; missionNamespace setVariable ["rmtfar_radio_fingerprint", ""]; [] call RMTFAR_fnc_resolveRadioModel }; }];

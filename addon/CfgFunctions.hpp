@@ -18,6 +18,7 @@ class CfgFunctions {
             class debugGhostSpawn {};
             class debugGhostToggleTransmit {};
             class debugCycleFreq {};
+            class hudStart {};
         };
     };
 };

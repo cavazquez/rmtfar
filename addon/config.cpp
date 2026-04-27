@@ -1,5 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 #include "CfgFunctions.hpp"
+#include "CfgRscTitles.hpp"
 
 class CfgPatches {
     class rmtfar_main {
