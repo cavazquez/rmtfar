@@ -50,13 +50,11 @@ fn get_state() -> &'static Mutex<ExtensionState> {
 // Core logic
 // ---------------------------------------------------------------------------
 
-fn handle_init(local_id: &str) -> &'static str {
-    if let Ok(mut s) = get_state().lock() {
-        s.local_id = Some(local_id.to_string());
-        "0"
-    } else {
-        "ERR:lock"
-    }
+fn handle_init(local_id_raw: &str) -> Result<(), String> {
+    let local_id = normalize_single_string_arg(local_id_raw)?;
+    let mut s = get_state().lock().map_err(|e| format!("lock: {e}"))?;
+    s.local_id = Some(local_id);
+    Ok(())
 }
 
 /// Parser principal para `send`.
@@ -96,6 +94,31 @@ fn normalize_v1_payload(s: &str) -> Result<String, String> {
     }
 
     Err("unsupported payload format; expected v1|...".to_string())
+}
+
+/// Arma `callExtension` puede envolver un único string como JSON:
+/// - `"valor"` o `["valor"]`
+/// - `valor` plano
+fn normalize_single_string_arg(s: &str) -> Result<String, String> {
+    let s = s.trim();
+    if s.is_empty() {
+        return Err("empty string argument".to_string());
+    }
+
+    if s.starts_with('"') && s.ends_with('"') {
+        return serde_json::from_str::<String>(s).map_err(|e| format!("string wrapper: {e}"));
+    }
+
+    if s.starts_with('[') && s.ends_with(']') {
+        let arr =
+            serde_json::from_str::<Vec<String>>(s).map_err(|e| format!("array wrapper: {e}"))?;
+        if arr.len() == 1 {
+            return Ok(arr.into_iter().next().unwrap_or_default());
+        }
+        return Err("array wrapper must contain exactly one string".to_string());
+    }
+
+    Ok(s.to_string())
 }
 
 fn parse_optional_radio_range_m(raw: &str, label: &str) -> Result<Option<f32>, String> {
@@ -343,9 +366,17 @@ pub unsafe extern "C" fn RVExtensionArgs(
     match func.as_ref() {
         "init" if arg_count >= 1 => {
             let local_id = CStr::from_ptr(*args).to_string_lossy();
-            let result = handle_init(&local_id);
-            write_output(output, output_size, result);
-            0
+            match handle_init(&local_id) {
+                Ok(()) => {
+                    write_output(output, output_size, "0");
+                    0
+                }
+                Err(e) => {
+                    let msg = format!("ERR:{e}");
+                    write_output(output, output_size, &msg);
+                    -1
+                }
+            }
         }
         "send" if arg_count >= 1 => {
             let json = CStr::from_ptr(*args).to_string_lossy();
@@ -414,8 +445,8 @@ unsafe fn write_output(output: *mut c_char, size: c_int, data: &str) {
 #[cfg(test)]
 mod v1_tests {
     use super::{
-        normalize_v1_payload, parse_player_state, parse_player_state_v1, split_escaped_pipe,
-        unescape_pipe_field,
+        normalize_single_string_arg, normalize_v1_payload, parse_player_state,
+        parse_player_state_v1, split_escaped_pipe, unescape_pipe_field,
     };
 
     // ── parse_player_state_v1 ────────────────────────────────────────────────
@@ -526,6 +557,26 @@ mod v1_tests {
     fn normalize_unknown_format_errors() {
         assert!(normalize_v1_payload("{}").is_err());
         assert!(normalize_v1_payload("not_v1|x").is_err());
+    }
+
+    // ── normalize_single_string_arg ─────────────────────────────────────────
+
+    #[test]
+    fn normalize_single_string_bare() {
+        let result = normalize_single_string_arg("Jugador1").unwrap();
+        assert_eq!(result, "Jugador1");
+    }
+
+    #[test]
+    fn normalize_single_string_json_string() {
+        let result = normalize_single_string_arg(r#""Jugador1""#).unwrap();
+        assert_eq!(result, "Jugador1");
+    }
+
+    #[test]
+    fn normalize_single_string_json_array() {
+        let result = normalize_single_string_arg(r#"["Jugador1"]"#).unwrap();
+        assert_eq!(result, "Jugador1");
     }
 
     // ── parse_player_state (bytes entry point) ─────────────────────────────

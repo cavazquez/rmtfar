@@ -155,12 +155,60 @@ impl Plugin {
         let _ = w.flush();
     }
 
+    #[allow(clippy::too_many_arguments, clippy::similar_names)]
+    fn append_audio_decision_log(
+        &mut self,
+        mumble_id: u32,
+        local_id: Option<&str>,
+        sender_id: Option<&str>,
+        sender_radio_type: Option<&str>,
+        sender_radio_freq: Option<&str>,
+        sender_radio_channel: Option<u8>,
+        local_tuned_sr: Option<&str>,
+        local_tuned_sr_ch: Option<u8>,
+        local_tuned_lr: Option<&str>,
+        local_tuned_lr_ch: Option<u8>,
+        dist: Option<f32>,
+        sender_radio_range_m: Option<f32>,
+        sender_radio_los: Option<f32>,
+        allowed: bool,
+        reason: &str,
+    ) {
+        let Some(ref mut w) = self.udp_recv_log else {
+            return;
+        };
+        let ms = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0);
+        let _ = writeln!(
+            w,
+            "[{ms}] AUDIO mumble_id={} local={} sender={} allow={} reason={} dist_m={} tx_type={} tx_freq={} tx_ch={} tx_range_m={} los={} tuned_sr={}/ch{} tuned_lr={}/ch{}",
+            mumble_id,
+            local_id.unwrap_or(""),
+            sender_id.unwrap_or(""),
+            u8::from(allowed),
+            reason,
+            dist.map_or_else(String::new, |d| format!("{d:.2}")),
+            sender_radio_type.unwrap_or(""),
+            sender_radio_freq.unwrap_or(""),
+            sender_radio_channel.map_or_else(String::new, |c| c.to_string()),
+            sender_radio_range_m.map_or_else(String::new, |r| format!("{r:.1}")),
+            sender_radio_los.map_or_else(String::new, |l| format!("{l:.2}")),
+            local_tuned_sr.unwrap_or(""),
+            local_tuned_sr_ch.map_or_else(String::new, |c| c.to_string()),
+            local_tuned_lr.unwrap_or(""),
+            local_tuned_lr_ch.map_or_else(String::new, |c| c.to_string()),
+        );
+        let _ = w.flush();
+    }
+
     fn log_radio_state_throttled(&mut self, msg: &RadioStateMessage) {
         const MIN_INTERVAL: Duration = Duration::from_millis(900);
         let now = Instant::now();
-        let ok = self.last_udp_info_log.is_none_or(|t| {
-            now.saturating_duration_since(t) >= MIN_INTERVAL
-        });
+        let ok = self
+            .last_udp_info_log
+            .is_none_or(|t| now.saturating_duration_since(t) >= MIN_INTERVAL);
         if !ok {
             return;
         }
@@ -197,12 +245,7 @@ impl Plugin {
             return;
         }
         loop {
-            let len = match self
-                .socket
-                .as_ref()
-                .unwrap()
-                .recv(self.buf.as_mut_slice())
-            {
+            let len = match self.socket.as_ref().unwrap().recv(self.buf.as_mut_slice()) {
                 Ok(n) => n,
                 Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => break,
                 Err(_) => break,
@@ -231,7 +274,11 @@ impl Plugin {
     /// Decide whether user `mumble_id` should be heard.
     /// Returns `false` to mute the user entirely.
     /// Samples are modified in place when returning `true`.
-    #[allow(clippy::similar_names)]
+    #[allow(
+        clippy::similar_names,
+        clippy::too_many_lines,
+        clippy::single_match_else
+    )]
     pub(crate) fn process_audio(
         &mut self,
         mumble_id: u32,
@@ -240,7 +287,7 @@ impl Plugin {
     ) -> bool {
         self.poll();
 
-        let radio = self.state.last_message();
+        let radio = self.state.last_message().cloned();
 
         let (
             local_pos,
@@ -258,10 +305,36 @@ impl Plugin {
                 l.tuned_lr_freq.clone(),
                 l.tuned_lr_channel,
             ),
-            None => return true, // no state yet, pass through
+            None => {
+                self.append_audio_decision_log(
+                    mumble_id, None, None, None, None, None, None, None, None, None, None, None,
+                    None, true, "no_state",
+                );
+                return true; // no state yet, pass through
+            }
         };
 
         if !local_alive {
+            self.append_audio_decision_log(
+                mumble_id,
+                radio
+                    .as_ref()
+                    .and_then(|m| m.local())
+                    .map(|l| l.player_id.as_str()),
+                None,
+                None,
+                None,
+                None,
+                Some(&local_tuned_sr),
+                Some(local_tuned_sr_ch),
+                Some(&local_tuned_lr),
+                Some(local_tuned_lr_ch),
+                None,
+                None,
+                None,
+                false,
+                "local_dead_or_unconscious",
+            );
             return false;
         }
 
@@ -275,6 +348,26 @@ impl Plugin {
 
         let Some(sender) = sender else {
             tracing::debug!(mumble_id, "unknown user — pass through");
+            self.append_audio_decision_log(
+                mumble_id,
+                radio
+                    .as_ref()
+                    .and_then(|m| m.local())
+                    .map(|l| l.player_id.as_str()),
+                None,
+                None,
+                None,
+                None,
+                Some(&local_tuned_sr),
+                Some(local_tuned_sr_ch),
+                Some(&local_tuned_lr),
+                Some(local_tuned_lr_ch),
+                None,
+                None,
+                None,
+                true,
+                "unknown_user_passthrough",
+            );
             return true; // unknown user, pass through
         };
 
@@ -295,6 +388,26 @@ impl Plugin {
                     local_freq = %local_freq,
                     "radio freq mismatch — muted"
                 );
+                self.append_audio_decision_log(
+                    mumble_id,
+                    radio
+                        .as_ref()
+                        .and_then(|m| m.local())
+                        .map(|l| l.player_id.as_str()),
+                    Some(&sender.player_id),
+                    Some(&sender.radio_type),
+                    Some(&sender.radio_freq),
+                    Some(sender.radio_channel),
+                    Some(&local_tuned_sr),
+                    Some(local_tuned_sr_ch),
+                    Some(&local_tuned_lr),
+                    Some(local_tuned_lr_ch),
+                    Some(dist),
+                    Some(sender.radio_range_m),
+                    Some(sender.radio_los_quality),
+                    false,
+                    "radio_freq_mismatch",
+                );
                 return false;
             }
             if sender.radio_channel != local_channel {
@@ -304,10 +417,50 @@ impl Plugin {
                     local_ch = local_channel,
                     "radio channel mismatch — muted"
                 );
+                self.append_audio_decision_log(
+                    mumble_id,
+                    radio
+                        .as_ref()
+                        .and_then(|m| m.local())
+                        .map(|l| l.player_id.as_str()),
+                    Some(&sender.player_id),
+                    Some(&sender.radio_type),
+                    Some(&sender.radio_freq),
+                    Some(sender.radio_channel),
+                    Some(&local_tuned_sr),
+                    Some(local_tuned_sr_ch),
+                    Some(&local_tuned_lr),
+                    Some(local_tuned_lr_ch),
+                    Some(dist),
+                    Some(sender.radio_range_m),
+                    Some(sender.radio_los_quality),
+                    false,
+                    "radio_channel_mismatch",
+                );
                 return false;
             }
             if dist > sender.radio_range_m {
                 tracing::debug!(uid = %sender.player_id, dist, "out of radio range — muted");
+                self.append_audio_decision_log(
+                    mumble_id,
+                    radio
+                        .as_ref()
+                        .and_then(|m| m.local())
+                        .map(|l| l.player_id.as_str()),
+                    Some(&sender.player_id),
+                    Some(&sender.radio_type),
+                    Some(&sender.radio_freq),
+                    Some(sender.radio_channel),
+                    Some(&local_tuned_sr),
+                    Some(local_tuned_sr_ch),
+                    Some(&local_tuned_lr),
+                    Some(local_tuned_lr_ch),
+                    Some(dist),
+                    Some(sender.radio_range_m),
+                    Some(sender.radio_los_quality),
+                    false,
+                    "radio_out_of_range",
+                );
                 return false;
             }
             let signal_quality = (1.0 - (dist / sender.radio_range_m).clamp(0.0, 1.0))
@@ -319,17 +472,86 @@ impl Plugin {
                 "radio — applying DSP"
             );
             dsp::apply_radio_effect(samples, sample_rate, signal_quality);
+            self.append_audio_decision_log(
+                mumble_id,
+                radio
+                    .as_ref()
+                    .and_then(|m| m.local())
+                    .map(|l| l.player_id.as_str()),
+                Some(&sender.player_id),
+                Some(&sender.radio_type),
+                Some(&sender.radio_freq),
+                Some(sender.radio_channel),
+                Some(&local_tuned_sr),
+                Some(local_tuned_sr_ch),
+                Some(&local_tuned_lr),
+                Some(local_tuned_lr_ch),
+                Some(dist),
+                Some(sender.radio_range_m),
+                Some(sender.radio_los_quality),
+                true,
+                "radio_dsp",
+            );
             true
         } else if sender.transmitting_local {
             if dist > LOCAL_VOICE_RANGE_M {
                 tracing::debug!(uid = %sender.player_id, dist, "out of local range — muted");
+                self.append_audio_decision_log(
+                    mumble_id,
+                    radio
+                        .as_ref()
+                        .and_then(|m| m.local())
+                        .map(|l| l.player_id.as_str()),
+                    Some(&sender.player_id),
+                    Some("local"),
+                    None,
+                    None,
+                    Some(&local_tuned_sr),
+                    Some(local_tuned_sr_ch),
+                    Some(&local_tuned_lr),
+                    Some(local_tuned_lr_ch),
+                    Some(dist),
+                    Some(LOCAL_VOICE_RANGE_M),
+                    None,
+                    false,
+                    "local_out_of_range",
+                );
                 return false;
             }
             let volume = 1.0 - (dist / LOCAL_VOICE_RANGE_M).clamp(0.0, 1.0);
             tracing::debug!(uid = %sender.player_id, dist, volume, "local voice");
             audio::apply_volume(samples, volume);
+            self.append_audio_decision_log(
+                mumble_id,
+                radio
+                    .as_ref()
+                    .and_then(|m| m.local())
+                    .map(|l| l.player_id.as_str()),
+                Some(&sender.player_id),
+                Some("local"),
+                None,
+                None,
+                Some(&local_tuned_sr),
+                Some(local_tuned_sr_ch),
+                Some(&local_tuned_lr),
+                Some(local_tuned_lr_ch),
+                Some(dist),
+                Some(LOCAL_VOICE_RANGE_M),
+                None,
+                true,
+                "local_voice",
+            );
             true
         } else {
+            let reason = if !sender.alive {
+                "sender_dead"
+            } else if !sender.conscious {
+                "sender_unconscious"
+            } else if sender.in_vehicle && !sender.transmitting_radio {
+                "sender_in_vehicle_no_radio_ptt"
+            } else {
+                "sender_not_transmitting"
+            };
             if !sender.alive {
                 tracing::debug!(uid = %sender.player_id, "dead — muted");
             } else if !sender.conscious {
@@ -339,6 +561,26 @@ impl Plugin {
             } else {
                 tracing::debug!(uid = %sender.player_id, "not transmitting — muted");
             }
+            self.append_audio_decision_log(
+                mumble_id,
+                radio
+                    .as_ref()
+                    .and_then(|m| m.local())
+                    .map(|l| l.player_id.as_str()),
+                Some(&sender.player_id),
+                Some(&sender.radio_type),
+                Some(&sender.radio_freq),
+                Some(sender.radio_channel),
+                Some(&local_tuned_sr),
+                Some(local_tuned_sr_ch),
+                Some(&local_tuned_lr),
+                Some(local_tuned_lr_ch),
+                Some(dist),
+                Some(sender.radio_range_m),
+                Some(sender.radio_los_quality),
+                false,
+                reason,
+            );
             false
         }
     }
