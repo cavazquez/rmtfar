@@ -11,6 +11,7 @@ class CfgFunctions {
             class setFrequency    {};
             class radioTransmit   {};
             class resolveRadioModel {};
+            class playRadioSquelch {};
             class debugToggle {};
             class debugGhostClear {};
             class debugGhostSpawn {};

@@ -14,8 +14,10 @@ if (!hasInterface) exitWith {};
 
 ["RMTFAR", "PTTRadioSR", "PTT - Radio (Corto Alcance)", {
     RMTFAR_pttRadioSR = true;
+    ["on"] call RMTFAR_fnc_playRadioSquelch;
 }, {
     RMTFAR_pttRadioSR = false;
+    ["off"] call RMTFAR_fnc_playRadioSquelch;
 }, [0x14, [false, false, false]]] call CBA_fnc_addKeybind;
 
 // --- DEBUG / test en Windows (Ctrl + Shift + F7–F10) — ver docs/windows-ghost-test.md

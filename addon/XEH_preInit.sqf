@@ -17,6 +17,8 @@ RMTFAR_radioChannelLR = 1;
 RMTFAR_pttLocal = false;
 RMTFAR_pttRadioSR = false;
 RMTFAR_pttRadioLR = false;
+// Squelch local al activar/desactivar PTT SR (sin depender de Mumble).
+missionNamespace setVariable ["RMTFAR_radioSquelchEnabled", true];
 // Alcances efectivos (m); los rellena resolveRadioModel desde CfgRMTFAR.
 RMTFAR_radioSrRangeM = 5000;
 RMTFAR_radioLrRangeM = 20000;
