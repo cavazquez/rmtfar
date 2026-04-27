@@ -286,10 +286,12 @@ pub unsafe extern "C" fn mumble_onUserAdded(
     );
 
     if rc == MUMBLE_STATUS_OK && !name_ptr.is_null() {
-        if let Ok(name) = std::ffi::CStr::from_ptr(name_ptr).to_str() {
-            let name = name.to_string();
+        if let Ok(name_str) = std::ffi::CStr::from_ptr(name_ptr).to_str() {
+            let name = name_str.to_string();
             tracing::info!(user_id, %name, "RMTFAR: registering identity");
-            plugin().state.register_session(user_id, name);
+            let mut p = plugin();
+            p.log_mumble_user_registered(user_id, &name);
+            p.state.register_session(user_id, name);
         }
         free_memory(plugin_id(), name_ptr.cast::<c_void>());
     } else {
@@ -331,7 +333,9 @@ pub unsafe extern "C" fn mumble_onServerConnected(_conn: mumble_connection_t) {
 #[no_mangle]
 pub unsafe extern "C" fn mumble_onServerDisconnected(_conn: mumble_connection_t) {
     tracing::info!("RMTFAR: disconnected from server");
-    plugin().state = crate::state::PluginState::default();
+    let mut p = plugin();
+    p.state = crate::state::PluginState::default();
+    p.clear_map_fail_throttle();
 }
 
 /// Fired by Mumble whenever any user starts or stops talking.
@@ -350,17 +354,19 @@ pub unsafe extern "C" fn mumble_onUserTalkingStateChanged(
     talking_state: c_int,
 ) {
     // Lazy registration: look up name the first time we see this user talk.
-    if plugin().state.name_for_session(user_id).is_none() {
+    let mut p = plugin();
+    if p.state.name_for_session(user_id).is_none() {
         if let (Some(get_user_name), Some(free_memory)) =
             (API_GET_USER_NAME.get(), API_FREE_MEMORY.get())
         {
             let mut name_ptr: *const c_char = std::ptr::null();
             let rc = get_user_name(plugin_id(), conn, user_id, std::ptr::addr_of_mut!(name_ptr));
             if rc == MUMBLE_STATUS_OK && !name_ptr.is_null() {
-                if let Ok(name) = std::ffi::CStr::from_ptr(name_ptr).to_str() {
-                    let name = name.to_string();
+                if let Ok(name_str) = std::ffi::CStr::from_ptr(name_ptr).to_str() {
+                    let name = name_str.to_string();
                     tracing::info!(user_id, %name, "RMTFAR: lazy identity registered");
-                    plugin().state.register_session(user_id, name);
+                    p.log_mumble_user_registered(user_id, &name);
+                    p.state.register_session(user_id, name);
                 }
                 free_memory(plugin_id(), name_ptr.cast::<c_void>());
             } else {

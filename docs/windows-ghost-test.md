@@ -39,7 +39,7 @@ Los atajos se reconfiguran en *Arma 3 → Configuración → Controles → Mods 
 | Dónde | Qué mirar |
 |-------|-----------|
 | **RPT de Arma** (`*.rpt`) | `RMTFAR DEBUG: ghost send ...` ~1/s por ghost mientras DEBUG está ON. |
-| **Plugin (archivo fijo)** | Al cargar el plugin el archivo se **vacía** y luego cada datagrama UDP :9501 se escribe en **`%TEMP%\rmtfar-plugin-udp.log`** (Windows) o `$TMPDIR/rmtfar-plugin-udp.log` / `/tmp/...` según el SO. Una línea por paquete: milisegundos desde epoch, tamaño en bytes y el JSON en texto (UTF-8 lossy). Si el JSON no parsea, una segunda línea `PARSE_ERR ...`. Desactivar: variable de entorno **`RMTFAR_UDP_LOG=0`** antes de abrir Mumble. Ruta alternativa: **`RMTFAR_UDP_LOG_PATH=C:\ruta\mi-udp.log`**. |
+| **Plugin (archivo fijo)** | Al cargar el plugin el archivo se **vacía** y luego cada datagrama UDP :9501 se escribe en **`%TEMP%\rmtfar-plugin-udp.log`** (Windows) o `$TMPDIR/rmtfar-plugin-udp.log` / `/tmp/...` según el SO. Una línea por paquete: milisegundos desde epoch, tamaño en bytes y el JSON en texto (UTF-8 lossy). Si el JSON no parsea, `PARSE_ERR ...`. Además: **`MUMBLE_REGISTER`** (cuando se conoce `mumble_id` + nombre de usuario Mumble), **`MAP_FAIL`** (máx. cada ~2 s por sesión si no hubo match Mumble→`player_id`, con `detail=no_mumble_name` o `mumble_name_not_in_radio_state` y muestra de `arma_player_ids`), y líneas **`AUDIO`** (decisión por frame). Desactivar: **`RMTFAR_UDP_LOG=0`**. Ruta: **`RMTFAR_UDP_LOG_PATH=...`**. |
 | **Plugin (stderr)** | `tracing::info!` ~cada 0,9 s con resumen (si tenés consola adjunta a Mumble). |
 
 ## Dónde cambiar los atajos en Arma 3

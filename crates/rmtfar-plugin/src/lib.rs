@@ -12,7 +12,8 @@
 //!
 //! Each plugin load truncates then logs every UDP datagram to a file (see `start()`): by default
 //! `{TEMP}/rmtfar-plugin-udp.log` — disable with env `RMTFAR_UDP_LOG=0`, override path with
-//! `RMTFAR_UDP_LOG_PATH`.
+//! `RMTFAR_UDP_LOG_PATH`. Same file may include `MUMBLE_REGISTER` (session→name) and throttled
+//! `MAP_FAIL` when Mumble username cannot be matched to Arma `player_id`.
 
 pub mod audio;
 pub mod dsp;
@@ -24,6 +25,7 @@ mod tests;
 
 use rmtfar_protocol::{distance, RadioStateMessage, LOCAL_VOICE_RANGE_M, PLUGIN_RECV_PORT};
 use state::PluginState;
+use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
 use std::io::{BufWriter, Write};
 use std::net::UdpSocket;
@@ -60,6 +62,8 @@ pub(crate) struct Plugin {
     udp_recv_log: Option<BufWriter<File>>,
     /// Throttle `tracing::info!` for each UDP `radio_state` (high rate from Arma).
     last_udp_info_log: Option<Instant>,
+    /// Throttle `MAP_FAIL` lines per Mumble session (audio is per-frame).
+    map_fail_throttle: HashMap<u32, Instant>,
 }
 
 impl Plugin {
@@ -70,6 +74,7 @@ impl Plugin {
             buf: vec![0u8; 65535],
             udp_recv_log: None,
             last_udp_info_log: None,
+            map_fail_throttle: HashMap::new(),
         }
     }
 
@@ -144,6 +149,75 @@ impl Plugin {
             let _ = w.flush();
         }
         self.socket = None;
+        self.map_fail_throttle.clear();
+    }
+
+    pub(crate) fn clear_map_fail_throttle(&mut self) {
+        self.map_fail_throttle.clear();
+    }
+
+    fn udp_log_ms() -> u128 {
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map(|d| d.as_millis())
+            .unwrap_or(0)
+    }
+
+    /// Registro en archivo UDP (si está habilitado): nombre Mumble visto para `mumble_id`.
+    pub(crate) fn log_mumble_user_registered(&mut self, mumble_id: u32, name: &str) {
+        let Some(ref mut w) = self.udp_recv_log else {
+            return;
+        };
+        let ms = Self::udp_log_ms();
+        let _ = writeln!(
+            w,
+            "[{ms}] MUMBLE_REGISTER mumble_id={mumble_id} name={name}"
+        );
+        let _ = w.flush();
+    }
+
+    /// Fallo de mapeo Mumble→Arma; como mucho una línea cada [`MAP_FAIL_MIN_INTERVAL`] por `mumble_id`.
+    fn log_map_fail_throttled(
+        &mut self,
+        mumble_id: u32,
+        mumble_name: Option<&str>,
+        detail: &str,
+        arma_player_ids: &[String],
+    ) {
+        const MAP_FAIL_MIN_INTERVAL: Duration = Duration::from_secs(2);
+        let now = Instant::now();
+        if let Some(t) = self.map_fail_throttle.get(&mumble_id) {
+            if now.saturating_duration_since(*t) < MAP_FAIL_MIN_INTERVAL {
+                return;
+            }
+        }
+        self.map_fail_throttle.insert(mumble_id, now);
+        self.map_fail_throttle
+            .retain(|_, t| now.saturating_duration_since(*t) < Duration::from_secs(120));
+
+        let Some(ref mut w) = self.udp_recv_log else {
+            return;
+        };
+        let ms = Self::udp_log_ms();
+        let name_part = mumble_name
+            .map(|s| format!(" mumble_name={s}"))
+            .unwrap_or_default();
+        let ids = if arma_player_ids.is_empty() {
+            String::new()
+        } else {
+            let joined = arma_player_ids
+                .iter()
+                .take(12)
+                .map(String::as_str)
+                .collect::<Vec<_>>()
+                .join(",");
+            format!(" arma_player_ids={joined}")
+        };
+        let _ = writeln!(
+            w,
+            "[{ms}] MAP_FAIL mumble_id={mumble_id} detail={detail}{name_part}{ids}"
+        );
+        let _ = w.flush();
     }
 
     fn append_udp_recv_log(&mut self, len: usize) {
@@ -346,12 +420,23 @@ impl Plugin {
         // Find the sender: Mumble session ID → username → player state.
         // The test-client / Arma 3 mod must register players keyed by their
         // Mumble username (--id <mumble-username> in rmtfar-test-client).
+        let mumble_name_owned = self.state.name_for_session(mumble_id).map(str::to_string);
         let sender = radio.as_ref().and_then(|m| {
-            let name = self.state.name_for_session(mumble_id)?;
-            m.players.iter().find(|p| p.player_id == name)
+            let n = mumble_name_owned.as_deref()?;
+            m.players.iter().find(|p| p.player_id == n)
         });
 
         let Some(sender) = sender else {
+            let detail = if mumble_name_owned.is_none() {
+                "no_mumble_name"
+            } else {
+                "mumble_name_not_in_radio_state"
+            };
+            let ids: Vec<String> = radio
+                .as_ref()
+                .map(|m| m.players.iter().map(|p| p.player_id.clone()).collect())
+                .unwrap_or_default();
+            self.log_map_fail_throttled(mumble_id, mumble_name_owned.as_deref(), detail, &ids);
             tracing::debug!(mumble_id, "unknown user — pass through");
             self.append_audio_decision_log(
                 mumble_id,
