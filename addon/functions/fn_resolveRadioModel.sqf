@@ -61,3 +61,11 @@ if (isClass _facCfg) then {
 };
 RMTFAR_radioSrRangeM = (_sr * _mult) max 1;
 RMTFAR_radioLrRangeM = (_lr * _mult) max 0;
+diag_log format [
+    "RMTFAR: radio model hit=%1 faction=%2 mult=%3 sr_m=%4 lr_m=%5",
+    if (_hit isEqualTo "") then {"Default"} else {_hit},
+    faction player,
+    _mult,
+    RMTFAR_radioSrRangeM,
+    RMTFAR_radioLrRangeM
+];
