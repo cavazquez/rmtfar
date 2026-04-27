@@ -10,16 +10,14 @@ private _backItems = if (isNull _bp) then {
 } else {
     str (itemCargo _bp)
 };
-private _fp = format [
-    "%1|%2|%3|%4|%5|%6|%7",
-    str (assignedItems player),
-    str (uniformItems player),
-    str (vestItems player),
-    str (weaponItems player),
-    _backItems,
-    str (items player),
-    faction player
-];
+// Campos precalculados: el parser de Arma falló con str(...) en línea dentro del array de format (RPT «Falta )»).
+private _fpAs = str (assignedItems player);
+private _fpUs = str (uniformItems player);
+private _fpVs = str (vestItems player);
+private _fpWs = str (weaponItems player);
+private _fpIs = str (items player);
+private _fpFc = str (faction player);
+private _fp = format ["%1|%2|%3|%4|%5|%6|%7", _fpAs, _fpUs, _fpVs, _fpWs, _backItems, _fpIs, _fpFc];
 if (_fp isEqualTo (missionNamespace getVariable ["rmtfar_radio_fingerprint", ""])) exitWith {};
 missionNamespace setVariable ["rmtfar_radio_fingerprint", _fp];
 
