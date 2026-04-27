@@ -61,6 +61,9 @@ mod tests {
             radio_sr: None,
             radio_lr: None,
             radio_los_quality: 1.0,
+            intercom_enabled: true,
+            intercom_channel: 1,
+            intercom_vehicle_id: String::new(),
         }
     }
 

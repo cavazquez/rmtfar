@@ -11,8 +11,15 @@ while {RMTFAR_enabled} do {
         player setVariable ["rmtfar_pttRadioLR", RMTFAR_pttRadioLR,    true];
         player setVariable ["rmtfar_freq",       RMTFAR_radioFreq,     true];
         player setVariable ["rmtfar_ch",         RMTFAR_radioChannel,  true];
+        player setVariable ["rmtfar_st",         RMTFAR_radioStereo,   true];
+        player setVariable ["rmtfar_code",       RMTFAR_radioCode,     true];
         player setVariable ["rmtfar_freqLR",     RMTFAR_radioFreqLR,   true];
         player setVariable ["rmtfar_chLR",       RMTFAR_radioChannelLR, true];
+        player setVariable ["rmtfar_stLR",       RMTFAR_radioStereoLR, true];
+        player setVariable ["rmtfar_codeLR",     RMTFAR_radioCodeLR,   true];
+        player setVariable ["rmtfar_icEnabled",  RMTFAR_intercomEnabled, true];
+        player setVariable ["rmtfar_icChannel",  RMTFAR_intercomChannel, true];
+        player setVariable ["rmtfar_icVehId",    if (vehicle player != player) then { netId (vehicle player) } else { "" }, true];
         player setVariable ["rmtfar_srRangeM",   RMTFAR_radioSrRangeM, true];
         player setVariable ["rmtfar_lrRangeM",   RMTFAR_radioLrRangeM, true];
 

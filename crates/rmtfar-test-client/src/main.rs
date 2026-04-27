@@ -94,6 +94,8 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
             volume: 1.0,
             enabled: true,
             range_m: cfg.radio_range_m,
+            stereo: 0,
+            code: String::new(),
         }),
         radio_lr: Some(RadioConfig {
             freq: cfg.freq_lr.clone(),
@@ -101,8 +103,13 @@ fn build_state(cfg: &Config, tick: u64, pos: [f32; 3], dir: f32) -> PlayerState 
             volume: 1.0,
             enabled: !cfg.freq_lr.is_empty(),
             range_m: cfg.radio_range_lr_m,
+            stereo: 0,
+            code: String::new(),
         }),
         radio_los_quality: 1.0,
+        intercom_enabled: true,
+        intercom_channel: 1,
+        intercom_vehicle_id: String::new(),
     }
 }
 

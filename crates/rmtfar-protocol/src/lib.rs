@@ -38,6 +38,12 @@ pub struct RadioConfig {
     /// Useful for testing without needing to be thousands of metres apart.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub range_m: Option<f32>,
+    /// 0=both, 1=left, 2=right.
+    #[serde(default)]
+    pub stereo: u8,
+    /// Logical encryption / net code (empty = open).
+    #[serde(default)]
+    pub code: String,
 }
 
 impl Default for RadioConfig {
@@ -48,6 +54,8 @@ impl Default for RadioConfig {
             volume: 1.0,
             enabled: true,
             range_m: None,
+            stereo: 0,
+            code: String::new(),
         }
     }
 }
@@ -94,6 +102,15 @@ pub struct PlayerState {
     /// Occlusion / line-of-sight factor from the local client toward this player (1.0 = clear).
     #[serde(default = "default_one_f32")]
     pub radio_los_quality: f32,
+    /// Vehicle intercom enabled on local client.
+    #[serde(default = "default_true")]
+    pub intercom_enabled: bool,
+    /// Vehicle intercom channel (1..N).
+    #[serde(default = "default_channel")]
+    pub intercom_channel: u8,
+    /// netId of vehicle for intercom scoping.
+    #[serde(default)]
+    pub intercom_vehicle_id: String,
 }
 
 impl PlayerState {
@@ -153,6 +170,9 @@ pub struct PlayerSummary {
     /// Frequency of the active transmission, e.g. "152.000"
     #[serde(default)]
     pub radio_freq: String,
+    /// Logical radio code for active TX.
+    #[serde(default)]
+    pub radio_code: String,
     /// Channel of the active transmission
     #[serde(default)]
     pub radio_channel: u8,
@@ -165,15 +185,36 @@ pub struct PlayerSummary {
     /// Tuned SR channel regardless of PTT.
     #[serde(default = "default_channel")]
     pub tuned_sr_channel: u8,
+    /// Stereo preference for SR receive path: 0=both, 1=left, 2=right.
+    #[serde(default)]
+    pub tuned_sr_stereo: u8,
+    /// Tuned SR code regardless of PTT.
+    #[serde(default)]
+    pub tuned_sr_code: String,
     /// Tuned LR frequency regardless of PTT — used to check listener compatibility.
     #[serde(default)]
     pub tuned_lr_freq: String,
     /// Tuned LR channel regardless of PTT.
     #[serde(default = "default_channel")]
     pub tuned_lr_channel: u8,
+    /// Stereo preference for LR receive path: 0=both, 1=left, 2=right.
+    #[serde(default)]
+    pub tuned_lr_stereo: u8,
+    /// Tuned LR code regardless of PTT.
+    #[serde(default)]
+    pub tuned_lr_code: String,
     /// Same as [`PlayerState::radio_los_quality`] — used by the plugin for radio DSP.
     #[serde(default = "default_one_f32")]
     pub radio_los_quality: f32,
+    #[serde(default = "default_true")]
+    pub intercom_enabled: bool,
+    #[serde(default = "default_channel")]
+    pub intercom_channel: u8,
+    #[serde(default)]
+    pub intercom_vehicle_id: String,
+    /// Raw local PTT input (used for intercom while inside vehicle).
+    #[serde(default)]
+    pub ptt_local_raw: bool,
 }
 
 fn default_channel() -> u8 {
@@ -184,10 +225,14 @@ fn default_one_f32() -> f32 {
     1.0
 }
 
+fn default_true() -> bool {
+    true
+}
+
 impl PlayerSummary {
     #[allow(clippy::similar_names)]
     pub fn from_state(state: &PlayerState) -> Self {
-        let (transmitting_radio, radio_type, radio_freq, radio_channel, radio_range_m) =
+        let (transmitting_radio, radio_type, radio_freq, radio_channel, radio_range_m, radio_code) =
             if state.is_transmitting_sr() {
                 let cfg = state.radio_sr.as_ref().unwrap();
                 (
@@ -196,6 +241,7 @@ impl PlayerSummary {
                     cfg.freq.clone(),
                     cfg.channel,
                     cfg.range_m.unwrap_or(RADIO_SR_RANGE_M),
+                    cfg.code.clone(),
                 )
             } else if state.is_transmitting_lr() {
                 let cfg = state.radio_lr.as_ref().unwrap();
@@ -205,25 +251,26 @@ impl PlayerSummary {
                     cfg.freq.clone(),
                     cfg.channel,
                     cfg.range_m.unwrap_or(RADIO_LR_RANGE_M),
+                    cfg.code.clone(),
                 )
             } else {
-                (false, String::new(), String::new(), 0, 0.0)
+                (false, String::new(), String::new(), 0, 0.0, String::new())
             };
 
-        let (tuned_sr_freq, tuned_sr_channel, tuned_lr_freq, tuned_lr_channel) = {
+        let (tuned_sr_freq, tuned_sr_channel, tuned_sr_stereo, tuned_sr_code, tuned_lr_freq, tuned_lr_channel, tuned_lr_stereo, tuned_lr_code) = {
             let sr = state
                 .radio_sr
                 .as_ref()
                 .filter(|r| r.enabled)
-                .map(|r| (r.freq.clone(), r.channel))
+                .map(|r| (r.freq.clone(), r.channel, r.stereo, r.code.clone()))
                 .unwrap_or_default();
             let lr = state
                 .radio_lr
                 .as_ref()
                 .filter(|r| r.enabled)
-                .map(|r| (r.freq.clone(), r.channel))
+                .map(|r| (r.freq.clone(), r.channel, r.stereo, r.code.clone()))
                 .unwrap_or_default();
-            (sr.0, sr.1, lr.0, lr.1)
+            (sr.0, sr.1, sr.2, sr.3, lr.0, lr.1, lr.2, lr.3)
         };
 
         Self {
@@ -237,13 +284,22 @@ impl PlayerSummary {
             transmitting_radio,
             radio_type,
             radio_freq,
+            radio_code,
             radio_channel,
             radio_range_m,
             tuned_sr_freq,
             tuned_sr_channel,
+            tuned_sr_stereo,
+            tuned_sr_code,
             tuned_lr_freq,
             tuned_lr_channel,
+            tuned_lr_stereo,
+            tuned_lr_code,
             radio_los_quality: state.radio_los_quality,
+            intercom_enabled: state.intercom_enabled,
+            intercom_channel: state.intercom_channel,
+            intercom_vehicle_id: state.intercom_vehicle_id.clone(),
+            ptt_local_raw: state.ptt_local,
         }
     }
 }
@@ -346,6 +402,9 @@ mod tests {
             radio_sr: Some(RadioConfig::default()),
             radio_lr: None,
             radio_los_quality: 1.0,
+            intercom_enabled: true,
+            intercom_channel: 1,
+            intercom_vehicle_id: String::new(),
         }
     }
 
@@ -502,6 +561,8 @@ mod tests {
             volume: 1.0,
             enabled: true,
             range_m: None,
+            stereo: 0,
+            code: String::new(),
         });
         let summary = PlayerSummary::from_state(&state);
         assert_eq!(summary.tuned_sr_freq, "43.0");
@@ -518,6 +579,8 @@ mod tests {
             volume: 1.0,
             enabled: true,
             range_m: None,
+            stereo: 0,
+            code: String::new(),
         });
         let summary = PlayerSummary::from_state(&state);
         assert_eq!(summary.tuned_lr_freq, "30.5");
@@ -533,6 +596,8 @@ mod tests {
             volume: 1.0,
             enabled: false, // radio OFF
             range_m: None,
+            stereo: 0,
+            code: String::new(),
         });
         let summary = PlayerSummary::from_state(&state);
         assert_eq!(
@@ -555,6 +620,8 @@ mod tests {
             volume: 1.0,
             enabled: true,
             range_m: None,
+            stereo: 0,
+            code: String::new(),
         });
         let summary = PlayerSummary::from_state(&state);
         assert!(summary.transmitting_radio);
@@ -573,6 +640,8 @@ mod tests {
             volume: 1.0,
             enabled: true,
             range_m: Some(500.0),
+            stereo: 0,
+            code: String::new(),
         });
         let summary = PlayerSummary::from_state(&state);
         assert!(

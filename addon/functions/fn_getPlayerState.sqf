@@ -22,8 +22,15 @@ private _pttRadioSR = false;
 private _pttRadioLR = false;
 private _freq       = "152.000";
 private _channel    = 1;
+private _stereo     = 0;
+private _code       = "";
 private _freqLR     = "";
 private _channelLR  = 1;
+private _stereoLR   = 0;
+private _codeLR     = "";
+private _icEnabled  = true;
+private _icChannel  = 1;
+private _icVehId    = "";
 
 if (_isLocal) then {
     _pttLocal   = RMTFAR_pttLocal;
@@ -31,16 +38,30 @@ if (_isLocal) then {
     _pttRadioLR = RMTFAR_pttRadioLR;
     _freq       = RMTFAR_radioFreq;
     _channel    = RMTFAR_radioChannel;
+    _stereo     = RMTFAR_radioStereo;
+    _code       = RMTFAR_radioCode;
     _freqLR     = RMTFAR_radioFreqLR;
     _channelLR  = RMTFAR_radioChannelLR;
+    _stereoLR   = RMTFAR_radioStereoLR;
+    _codeLR     = RMTFAR_radioCodeLR;
+    _icEnabled  = RMTFAR_intercomEnabled;
+    _icChannel  = RMTFAR_intercomChannel;
+    _icVehId    = if (_inVehicle) then { netId (vehicle _unit) } else { "" };
 } else {
     _pttLocal   = _unit getVariable ["rmtfar_pttLocal",   false];
     _pttRadioSR = _unit getVariable ["rmtfar_pttRadioSR", false];
     _pttRadioLR = _unit getVariable ["rmtfar_pttRadioLR", false];
     _freq       = _unit getVariable ["rmtfar_freq",       "152.000"];
     _channel    = _unit getVariable ["rmtfar_ch",         1];
+    _stereo     = _unit getVariable ["rmtfar_st",         0];
+    _code       = _unit getVariable ["rmtfar_code",       ""];
     _freqLR     = _unit getVariable ["rmtfar_freqLR",     ""];
     _channelLR  = _unit getVariable ["rmtfar_chLR",       1];
+    _stereoLR   = _unit getVariable ["rmtfar_stLR",       0];
+    _codeLR     = _unit getVariable ["rmtfar_codeLR",     ""];
+    _icEnabled  = _unit getVariable ["rmtfar_icEnabled",  true];
+    _icChannel  = _unit getVariable ["rmtfar_icChannel",  1];
+    _icVehId    = _unit getVariable ["rmtfar_icVehId",    ""];
 };
 
 private _srRm = if (_isLocal) then { RMTFAR_radioSrRangeM } else { _unit getVariable ["rmtfar_srRangeM", 0] };
@@ -112,8 +133,15 @@ createHashMapFromArray [
     ["ptt_radio_lr",   _pttRadioLR],
     ["radio_freq",     _freq],
     ["radio_channel",  _channel],
+    ["radio_stereo",   _stereo],
+    ["radio_code",     _code],
     ["radio_freq_lr",  _freqLR],
     ["radio_channel_lr", _channelLR],
+    ["radio_stereo_lr", _stereoLR],
+    ["radio_code_lr", _codeLR],
+    ["intercom_enabled", _icEnabled],
+    ["intercom_channel", _icChannel],
+    ["intercom_vehicle_id", _icVehId],
     ["radio_los", _los],
     ["radio_sr_range_m", _srRm],
     ["radio_lr_range_m", _lrRm]

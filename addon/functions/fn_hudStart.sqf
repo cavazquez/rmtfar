@@ -49,13 +49,16 @@ if (!hasInterface) exitWith {};
                 private _ctrl = _dsp displayCtrl RMTFAR_HUD_IDC;
                 if (isNull _ctrl) exitWith {};
 
-                private _lr = "";
-                if (RMTFAR_radioFreqLR != "") then {
-                    _lr = format [
-                        "<br/><t size='0.85' color='#aaccee'>LR %1 MHz · C%2</t>",
+                private _lr = if (RMTFAR_radioFreqLR != "") then {
+                    private _lrSt = ["B", "L", "R"] select ((RMTFAR_radioStereoLR max 0) min 2);
+                    format [
+                        "<br/><t size='0.85' color='#aaccee'>LR %1 MHz · C%2 · %3</t>",
                         RMTFAR_radioFreqLR,
-                        RMTFAR_radioChannelLR
-                    ];
+                        RMTFAR_radioChannelLR,
+                        _lrSt
+                    ]
+                } else {
+                    "<br/><t size='0.85' color='#667788'>LR sin sintonizar</t>"
                 };
 
                 private _txSr = if (RMTFAR_pttRadioSR) then {
@@ -76,14 +79,32 @@ if (!hasInterface) exitWith {};
                     ""
                 };
 
+                private _active = toUpper (missionNamespace getVariable ["RMTFAR_activeRadio", "SR"]);
+                private _activeTxt = format ["<br/><t size='0.8' color='#99ccaa'>Activa: %1</t>", _active];
+                private _icTxt = format [
+                    "<br/><t size='0.8' color='#cceea0'>IC %1 · C%2</t>",
+                    if (RMTFAR_intercomEnabled) then {"ON"} else {"OFF"},
+                    RMTFAR_intercomChannel
+                ];
+                private _icVehTxt = if ((missionNamespace getVariable ["RMTFAR_showIntercomDebug", false]) && {vehicle player != player}) then {
+                    format ["<br/><t size='0.75' color='#99aa88'>IC-Veh %1</t>", netId (vehicle player)]
+                } else {
+                    ""
+                };
+
+                private _srSt = ["B", "L", "R"] select ((RMTFAR_radioStereo max 0) min 2);
                 private _html = format [
-                    "<t size='0.75' color='#8899aa'>RMTFAR</t><br/><t size='0.9' color='#ddeeff'>SR %1 MHz · C%2</t>%3%4%5%6",
+                    "<t size='0.75' color='#8899aa'>RMTFAR</t><br/><t size='0.9' color='#ddeeff'>SR %1 MHz · C%2 · %3</t>%4%5%6%7%8%9%10",
                     RMTFAR_radioFreq,
                     RMTFAR_radioChannel,
+                    _srSt,
                     _lr,
                     _txSr,
                     _txLr,
-                    _txLoc
+                    _txLoc,
+                    _activeTxt,
+                    _icTxt,
+                    _icVehTxt
                 ];
 
                 _ctrl ctrlSetStructuredText parseText _html;

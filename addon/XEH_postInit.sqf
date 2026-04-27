@@ -16,6 +16,7 @@ diag_log format ["RMTFAR: Extension v%1 found", _version];
 
 RMTFAR_enabled = true;
 
+[] call RMTFAR_fnc_loadProfileSettings;
 [] call RMTFAR_fnc_hudStart;
 
 [] call RMTFAR_fnc_resolveRadioModel;
@@ -26,3 +27,19 @@ player addEventHandler ["Respawn", { [] spawn { sleep 0.1; missionNamespace setV
 
 diag_log format ["RMTFAR: Initialized v%1", _version];
 systemChat format ["RMTFAR activo (v%1)", _version];
+if (missionNamespace getVariable ["RMTFAR_showStartupHints", true]) then {
+    private _active = toUpper (missionNamespace getVariable ["RMTFAR_activeRadio", "SR"]);
+    private _st = if (_active isEqualTo "LR") then { RMTFAR_radioStereoLR } else { RMTFAR_radioStereo };
+    private _stLabel = ["B", "L", "R"] select ((_st max 0) min 2);
+    systemChat format ["RMTFAR: radio activa inicial %1 (%2)", _active, _stLabel];
+
+    private _hasPttActive = ["RMTFAR", "PTTRadioActive"] call RMTFAR_fnc_cbaKeybindHasUserKeys;
+    if (!_hasPttActive) then {
+        systemChat "RMTFAR: asigna una tecla a 'PTT - Radio activa (SR/LR)' (sugerida: Caps Lock)";
+    };
+
+    private _hasToggle = ["RMTFAR", "ToggleActiveRadio"] call RMTFAR_fnc_cbaKeybindHasUserKeys;
+    if (!_hasToggle) then {
+        systemChat "RMTFAR: opcional - asigna tecla a 'Alternar radio activa (SR/LR)'";
+    };
+};

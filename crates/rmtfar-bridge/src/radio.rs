@@ -68,9 +68,14 @@ mod tests {
                 volume: 1.0,
                 enabled: true,
                 range_m: None,
+                stereo: 0,
+                code: String::new(),
             }),
             radio_lr: None,
             radio_los_quality: 1.0,
+            intercom_enabled: true,
+            intercom_channel: 1,
+            intercom_vehicle_id: String::new(),
         }
     }
 
@@ -140,8 +145,13 @@ mod tests {
                 volume: 1.0,
                 enabled: true,
                 range_m: None,
+                stereo: 0,
+                code: String::new(),
             }),
             radio_los_quality: 1.0,
+            intercom_enabled: true,
+            intercom_channel: 1,
+            intercom_vehicle_id: String::new(),
         }
     }
 

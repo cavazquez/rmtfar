@@ -141,9 +141,9 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
         return Err("v1: missing prefix".to_string());
     }
     let n = fields.len();
-    if !(n == 18 || n == 19 || n == 21) {
+    if !(n == 18 || n == 19 || n == 21 || n == 23 || n == 25 || n == 27 || n == 28) {
         return Err(format!(
-            "v1: bad field count {n}, expected 18, 19, or 21 (radio_los + optional sr/lr range_m)"
+            "v1: bad field count {n}, expected 18, 19, 21, 23, 25, 27, or 28 (radio_los + optional sr/lr range_m + optional stereo + optional code + optional intercom + optional intercom_vehicle_id)"
         ));
     }
     let radio_los_quality = match n {
@@ -160,6 +160,36 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
         )
     } else {
         (None, None)
+    };
+    let (sr_stereo, lr_stereo) = if n >= 23 {
+        let srs = fields[21]
+            .parse::<u8>()
+            .map_err(|e| format!("v1: sr_stereo: {e}"))?;
+        let lrs = fields[22]
+            .parse::<u8>()
+            .map_err(|e| format!("v1: lr_stereo: {e}"))?;
+        (srs.min(2), lrs.min(2))
+    } else {
+        (0, 0)
+    };
+    let (sr_code, lr_code) = if n >= 25 {
+        (unescape_pipe_field(&fields[23]), unescape_pipe_field(&fields[24]))
+    } else {
+        (String::new(), String::new())
+    };
+    let (intercom_enabled, intercom_channel) = if n >= 27 {
+        let en = fields[25] == "1";
+        let ch = fields[26]
+            .parse::<u8>()
+            .map_err(|e| format!("v1: intercom_channel: {e}"))?;
+        (en, ch.max(1))
+    } else {
+        (true, 1)
+    };
+    let intercom_vehicle_id = if n >= 28 {
+        unescape_pipe_field(&fields[27])
+    } else {
+        String::new()
     };
     let player_id = unescape_pipe_field(&fields[1]);
     let server_id = unescape_pipe_field(&fields[2]);
@@ -199,6 +229,8 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
         volume: 1.0,
         enabled: true,
         range_m: sr_range_m,
+        stereo: sr_stereo,
+        code: sr_code,
     });
     let radio_lr = if lr_freq.is_empty() {
         None
@@ -209,6 +241,8 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
             volume: 1.0,
             enabled: true,
             range_m: lr_range_m,
+            stereo: lr_stereo,
+            code: lr_code,
         })
     };
 
@@ -229,6 +263,9 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
         radio_sr,
         radio_lr,
         radio_los_quality,
+        intercom_enabled,
+        intercom_channel,
+        intercom_vehicle_id,
     })
 }
 
@@ -476,6 +513,31 @@ mod v1_tests {
         let p = parse_player_state_v1(s).unwrap();
         assert!((p.radio_sr.as_ref().unwrap().range_m.unwrap() - 3000.0).abs() < 1e-3);
         assert!((p.radio_lr.as_ref().unwrap().range_m.unwrap() - 12000.0).abs() < 1e-3);
+    }
+
+    #[test]
+    fn v1_23_fields_parses_stereo() {
+        let s = "v1|76561198000000000|srv|1000|0|0|0|0|1|1||0|0|0|152.000|1|30.0|1|1|3000|12000|1|2";
+        let p = parse_player_state_v1(s).unwrap();
+        assert_eq!(p.radio_sr.as_ref().unwrap().stereo, 1);
+        assert_eq!(p.radio_lr.as_ref().unwrap().stereo, 2);
+    }
+
+    #[test]
+    fn v1_25_fields_parses_codes() {
+        let s = "v1|76561198000000000|srv|1000|0|0|0|0|1|1||0|1|0|152.000|1||1|1|3000|0|1|0|ALFA|";
+        let p = parse_player_state_v1(s).unwrap();
+        assert_eq!(p.radio_sr.as_ref().unwrap().code, "ALFA");
+        assert!(p.radio_lr.is_none());
+    }
+
+    #[test]
+    fn v1_28_fields_parses_intercom_vehicle_id() {
+        let s = "v1|id|srv|0|0|0|0|0|1|1|B_MRAP_01_F|1|0|0|43.0|1||1|1|0|0|0|0|||1|2|1:2";
+        let p = parse_player_state_v1(s).unwrap();
+        assert!(p.intercom_enabled);
+        assert_eq!(p.intercom_channel, 2);
+        assert_eq!(p.intercom_vehicle_id, "1:2");
     }
 
     #[test]

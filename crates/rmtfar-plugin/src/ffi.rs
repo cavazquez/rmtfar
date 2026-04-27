@@ -234,7 +234,7 @@ pub unsafe extern "C" fn mumble_onAudioSourceFetched(
     // Mumble API: returning true from this callback means "I modified the buffer,
     // use my version". Returning false means "I didn't touch it, use original audio".
     // So when we want to mute, we must zero the buffer AND return true.
-    let pass = plugin().process_audio(user_id, samples, sample_rate);
+    let pass = plugin().process_audio(user_id, samples, sample_rate, channel_count as usize);
     if pass {
         // DSP was applied (or pass-through for unknown users) — samples may be
         // modified; tell Mumble to use our buffer.

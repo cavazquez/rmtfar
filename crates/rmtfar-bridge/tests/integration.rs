@@ -89,9 +89,14 @@ fn make_state(id: &str, pos: [f32; 3], ptt_sr: bool) -> PlayerState {
             volume: 1.0,
             enabled: true,
             range_m: None,
+            stereo: 0,
+            code: String::new(),
         }),
         radio_lr: None,
         radio_los_quality: 1.0,
+        intercom_enabled: true,
+        intercom_channel: 1,
+        intercom_vehicle_id: String::new(),
     }
 }
 
@@ -294,6 +299,8 @@ fn bridge_lr_radio_state() {
         volume: 1.0,
         enabled: true,
         range_m: None,
+        stereo: 0,
+        code: String::new(),
     });
     let bridge_addr = format!("127.0.0.1:{bridge_recv}");
 

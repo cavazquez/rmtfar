@@ -349,6 +349,7 @@ impl Plugin {
         mumble_id: u32,
         samples: &mut [f32],
         sample_rate: u32,
+        channel_count: usize,
     ) -> bool {
         self.poll();
 
@@ -357,18 +358,34 @@ impl Plugin {
         let (
             local_pos,
             local_alive,
+            local_in_vehicle,
+            local_intercom_enabled,
+            local_intercom_channel,
+            local_intercom_vehicle_id,
             local_tuned_sr,
             local_tuned_sr_ch,
+            local_tuned_sr_st,
+            local_tuned_sr_code,
             local_tuned_lr,
             local_tuned_lr_ch,
+            local_tuned_lr_st,
+            local_tuned_lr_code,
         ) = match radio.as_ref().and_then(|m| m.local()) {
             Some(l) => (
                 l.pos,
                 l.alive && l.conscious,
+                l.in_vehicle,
+                l.intercom_enabled,
+                l.intercom_channel,
+                l.intercom_vehicle_id.clone(),
                 l.tuned_sr_freq.clone(),
                 l.tuned_sr_channel,
+                l.tuned_sr_stereo,
+                l.tuned_sr_code.clone(),
                 l.tuned_lr_freq.clone(),
                 l.tuned_lr_channel,
+                l.tuned_lr_stereo,
+                l.tuned_lr_code.clone(),
             ),
             None => {
                 self.append_audio_decision_log(
@@ -449,13 +466,51 @@ impl Plugin {
 
         let dist = distance(&local_pos, &sender.pos);
 
-        if sender.transmitting_radio {
+        if sender.in_vehicle
+            && local_in_vehicle
+            && sender.intercom_enabled
+            && local_intercom_enabled
+            && sender.intercom_channel == local_intercom_channel
+            && !sender.intercom_vehicle_id.is_empty()
+            && sender.intercom_vehicle_id == local_intercom_vehicle_id
+            && sender.ptt_local_raw
+            && sender.alive
+            && sender.conscious
+        {
+            audio::apply_volume(samples, 0.9);
+            self.append_audio_decision_log(
+                mumble_id,
+                radio
+                    .as_ref()
+                    .and_then(|m| m.local())
+                    .map(|l| l.player_id.as_str()),
+                Some(&sender.player_id),
+                Some("intercom"),
+                None,
+                Some(sender.intercom_channel),
+                Some(&local_tuned_sr),
+                Some(local_tuned_sr_ch),
+                Some(&local_tuned_lr),
+                Some(local_tuned_lr_ch),
+                Some(dist),
+                None,
+                None,
+                true,
+                "intercom",
+            );
+            true
+        } else if sender.transmitting_radio {
             // Match sender's transmission freq+channel against the local player's tuned
             // freq+channel for that radio type.
             let (local_freq, local_channel) = if sender.radio_type == "lr" {
                 (&local_tuned_lr, local_tuned_lr_ch)
             } else {
                 (&local_tuned_sr, local_tuned_sr_ch)
+            };
+            let local_code = if sender.radio_type == "lr" {
+                &local_tuned_lr_code
+            } else {
+                &local_tuned_sr_code
             };
             if sender.radio_freq.is_empty() || sender.radio_freq != *local_freq {
                 tracing::debug!(
@@ -515,6 +570,15 @@ impl Plugin {
                 );
                 return false;
             }
+            if sender.radio_code != *local_code {
+                tracing::debug!(
+                    uid = %sender.player_id,
+                    sender_code = %sender.radio_code,
+                    local_code = %local_code,
+                    "radio code mismatch — muted"
+                );
+                return false;
+            }
             if dist > sender.radio_range_m {
                 tracing::debug!(uid = %sender.player_id, dist, "out of radio range — muted");
                 self.append_audio_decision_log(
@@ -548,6 +612,12 @@ impl Plugin {
                 "radio — applying DSP"
             );
             dsp::apply_radio_effect(samples, sample_rate, signal_quality);
+            let stereo_mode = if sender.radio_type == "lr" {
+                local_tuned_lr_st
+            } else {
+                local_tuned_sr_st
+            };
+            audio::apply_stereo_mode(samples, channel_count, stereo_mode);
             self.append_audio_decision_log(
                 mumble_id,
                 radio
