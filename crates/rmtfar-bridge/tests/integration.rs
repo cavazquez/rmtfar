@@ -8,7 +8,7 @@
 //! Ports are allocated dynamically (binding to :0) to avoid conflicts when
 //! tests run in parallel or alongside a real bridge.
 
-use rmtfar_protocol::{PlayerState, RadioConfig, RadioStateMessage, PROTOCOL_VERSION};
+use rmtfar_protocol::{PROTOCOL_VERSION, PlayerState, RadioConfig, RadioStateMessage};
 use std::{
     net::UdpSocket,
     process::{Child, Command, Stdio},
@@ -126,10 +126,10 @@ fn poll_for_response(
             .set_read_timeout(Some(Duration::from_millis(100)))
             .unwrap();
 
-        if let Ok((len, _)) = plugin_sock.recv_from(&mut buf) {
-            if let Ok(msg) = serde_json::from_slice::<RadioStateMessage>(&buf[..len]) {
-                return msg;
-            }
+        if let Ok((len, _)) = plugin_sock.recv_from(&mut buf)
+            && let Ok(msg) = serde_json::from_slice::<RadioStateMessage>(&buf[..len])
+        {
+            return msg;
         }
 
         assert!(
@@ -200,12 +200,11 @@ fn bridge_tracks_multiple_players() {
         send_state(&sender_sock, &tx, &bridge_addr);
         send_state(&sender_sock, &rx, &bridge_addr);
 
-        if let Ok((len, _)) = plugin_sock.recv_from(&mut buf) {
-            if let Ok(m) = serde_json::from_slice::<RadioStateMessage>(&buf[..len]) {
-                if m.players.iter().any(|p| p.player_id == "p2") {
-                    break m;
-                }
-            }
+        if let Ok((len, _)) = plugin_sock.recv_from(&mut buf)
+            && let Ok(m) = serde_json::from_slice::<RadioStateMessage>(&buf[..len])
+            && m.players.iter().any(|p| p.player_id == "p2")
+        {
+            break m;
         }
 
         assert!(

@@ -1,6 +1,6 @@
 //! Radio matching logic.
 
-use rmtfar_protocol::{distance, PlayerState, RADIO_LR_RANGE_M, RADIO_SR_RANGE_M};
+use rmtfar_protocol::{PlayerState, RADIO_LR_RANGE_M, RADIO_SR_RANGE_M, distance};
 
 /// Returns true if `receiver` can hear `transmitter` on radio.
 #[allow(dead_code)]
@@ -12,22 +12,22 @@ pub fn can_hear_radio(transmitter: &PlayerState, receiver: &PlayerState) -> bool
         return false;
     }
 
-    if transmitter.is_transmitting_sr() {
-        if let (Some(tx_cfg), Some(rx_cfg)) = (&transmitter.radio_sr, &receiver.radio_sr) {
-            if tx_cfg.freq == rx_cfg.freq && tx_cfg.channel == rx_cfg.channel {
-                let dist = distance(&transmitter.pos, &receiver.pos);
-                return dist <= RADIO_SR_RANGE_M;
-            }
-        }
+    if transmitter.is_transmitting_sr()
+        && let (Some(tx_cfg), Some(rx_cfg)) = (&transmitter.radio_sr, &receiver.radio_sr)
+        && tx_cfg.freq == rx_cfg.freq
+        && tx_cfg.channel == rx_cfg.channel
+    {
+        let dist = distance(&transmitter.pos, &receiver.pos);
+        return dist <= RADIO_SR_RANGE_M;
     }
 
-    if transmitter.is_transmitting_lr() {
-        if let (Some(tx_cfg), Some(rx_cfg)) = (&transmitter.radio_lr, &receiver.radio_lr) {
-            if tx_cfg.freq == rx_cfg.freq && tx_cfg.channel == rx_cfg.channel {
-                let dist = distance(&transmitter.pos, &receiver.pos);
-                return dist <= RADIO_LR_RANGE_M;
-            }
-        }
+    if transmitter.is_transmitting_lr()
+        && let (Some(tx_cfg), Some(rx_cfg)) = (&transmitter.radio_lr, &receiver.radio_lr)
+        && tx_cfg.freq == rx_cfg.freq
+        && tx_cfg.channel == rx_cfg.channel
+    {
+        let dist = distance(&transmitter.pos, &receiver.pos);
+        return dist <= RADIO_LR_RANGE_M;
     }
 
     false

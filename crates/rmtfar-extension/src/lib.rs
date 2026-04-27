@@ -10,7 +10,7 @@
 //! 3. Writes `MumbleLink` shared memory (positional audio)
 //! 4. Builds and sends `RadioStateMessage` to the Mumble plugin via UDP :9501
 
-use std::ffi::{c_char, c_int, CStr};
+use std::ffi::{CStr, c_char, c_int};
 use std::sync::{Mutex, OnceLock};
 
 mod mumble_link;
@@ -19,7 +19,7 @@ mod state;
 
 use mumble_link::MumbleLink;
 use rmtfar_protocol::{
-    PlayerState, PlayerSummary, RadioConfig, RadioStateMessage, PROTOCOL_VERSION,
+    PROTOCOL_VERSION, PlayerState, PlayerSummary, RadioConfig, RadioStateMessage,
 };
 use sender::PluginSender;
 use state::PlayerStore;
@@ -126,15 +126,12 @@ fn parse_optional_radio_range_m(raw: &str, label: &str) -> Result<Option<f32>, S
         return Ok(None);
     }
     let v: f32 = raw.parse().map_err(|e| format!("v1: {label}: {e}"))?;
-    if v <= 0.0 {
-        Ok(None)
-    } else {
-        Ok(Some(v))
-    }
+    if v <= 0.0 { Ok(None) } else { Ok(Some(v)) }
 }
 
 #[allow(clippy::similar_names)] // Protocol field names are intentionally parallel (sr/lr).
 #[allow(clippy::many_single_char_names)] // x, y, z are coordinate names; s and n are idiomatic.
+#[allow(clippy::too_many_lines)] // v1 parser is verbose by design to keep field mapping explicit.
 fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
     let fields = split_escaped_pipe(s);
     if fields.is_empty() || fields[0] != "v1" {
@@ -173,7 +170,10 @@ fn parse_player_state_v1(s: &str) -> Result<PlayerState, String> {
         (0, 0)
     };
     let (sr_code, lr_code) = if n >= 25 {
-        (unescape_pipe_field(&fields[23]), unescape_pipe_field(&fields[24]))
+        (
+            unescape_pipe_field(&fields[23]),
+            unescape_pipe_field(&fields[24]),
+        )
     } else {
         (String::new(), String::new())
     };
@@ -517,7 +517,8 @@ mod v1_tests {
 
     #[test]
     fn v1_23_fields_parses_stereo() {
-        let s = "v1|76561198000000000|srv|1000|0|0|0|0|1|1||0|0|0|152.000|1|30.0|1|1|3000|12000|1|2";
+        let s =
+            "v1|76561198000000000|srv|1000|0|0|0|0|1|1||0|0|0|152.000|1|30.0|1|1|3000|12000|1|2";
         let p = parse_player_state_v1(s).unwrap();
         assert_eq!(p.radio_sr.as_ref().unwrap().stereo, 1);
         assert_eq!(p.radio_lr.as_ref().unwrap().stereo, 2);

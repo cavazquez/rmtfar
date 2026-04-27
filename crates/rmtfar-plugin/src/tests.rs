@@ -35,13 +35,22 @@ fn local_player(tuned_sr_freq: &str, tuned_sr_channel: u8) -> PlayerSummary {
         transmitting_radio: false,
         radio_type: String::new(),
         radio_freq: String::new(),
+        radio_code: String::new(),
         radio_channel: 1,
         radio_range_m: 0.0,
         tuned_sr_freq: tuned_sr_freq.into(),
         tuned_sr_channel,
+        tuned_sr_stereo: 0,
+        tuned_sr_code: String::new(),
         tuned_lr_freq: String::new(),
         tuned_lr_channel: 1,
+        tuned_lr_stereo: 0,
+        tuned_lr_code: String::new(),
         radio_los_quality: 1.0,
+        intercom_enabled: true,
+        intercom_channel: 1,
+        intercom_vehicle_id: String::new(),
+        ptt_local_raw: false,
     }
 }
 
@@ -68,13 +77,22 @@ fn sender_sr(
         transmitting_radio: transmitting,
         radio_type: "sr".into(),
         radio_freq: freq.into(),
+        radio_code: String::new(),
         radio_channel: channel,
         radio_range_m: range_m,
         tuned_sr_freq: freq.into(),
         tuned_sr_channel: channel,
+        tuned_sr_stereo: 0,
+        tuned_sr_code: String::new(),
         tuned_lr_freq: String::new(),
         tuned_lr_channel: 1,
+        tuned_lr_stereo: 0,
+        tuned_lr_code: String::new(),
         radio_los_quality: 1.0,
+        intercom_enabled: true,
+        intercom_channel: 1,
+        intercom_vehicle_id: String::new(),
+        ptt_local_raw: false,
     }
 }
 
@@ -91,13 +109,22 @@ fn sender_local(pos: [f32; 3], transmitting: bool) -> PlayerSummary {
         transmitting_radio: false,
         radio_type: String::new(),
         radio_freq: String::new(),
+        radio_code: String::new(),
         radio_channel: 1,
         radio_range_m: 0.0,
         tuned_sr_freq: String::new(),
         tuned_sr_channel: 1,
+        tuned_sr_stereo: 0,
+        tuned_sr_code: String::new(),
         tuned_lr_freq: String::new(),
         tuned_lr_channel: 1,
+        tuned_lr_stereo: 0,
+        tuned_lr_code: String::new(),
         radio_los_quality: 1.0,
+        intercom_enabled: true,
+        intercom_channel: 1,
+        intercom_vehicle_id: String::new(),
+        ptt_local_raw: transmitting,
     }
 }
 
@@ -127,7 +154,7 @@ fn radio_freq_match_applies_dsp() {
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(pass, "should return true (intercepted)");
     // DSP modifies samples, so they may change — but should not be zeroed
     // (we only check the return value for mute decision here since DSP is opaque)
@@ -141,7 +168,7 @@ fn radio_freq_mismatch_mutes() {
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(!pass, "freq mismatch should mute");
 }
 
@@ -157,7 +184,7 @@ fn radio_channel_mismatch_mutes() {
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(!pass, "channel mismatch should mute");
 }
 
@@ -169,7 +196,7 @@ fn radio_channel_match_passes() {
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(pass, "matching channel should pass");
 }
 
@@ -185,7 +212,7 @@ fn radio_out_of_range_mutes() {
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(!pass, "out of range should mute");
 }
 
@@ -197,7 +224,7 @@ fn radio_within_range_passes() {
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(pass, "within range should pass");
 }
 
@@ -222,7 +249,7 @@ fn dead_sender_mutes() {
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(!pass, "dead sender should mute");
 }
 
@@ -243,7 +270,7 @@ fn unconscious_sender_mutes() {
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(!pass, "unconscious sender should mute");
 }
 
@@ -260,7 +287,7 @@ fn sender_in_vehicle_no_radio_ptt_mutes() {
     );
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(!pass, "in vehicle without radio PTT should mute");
 }
 
@@ -273,7 +300,7 @@ fn local_voice_within_range_passes() {
     let msg = make_msg(local_player("", 1), sender_local([20.0, 0.0, 0.0], true));
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(pass, "local voice within 50m should pass");
 }
 
@@ -282,7 +309,7 @@ fn local_voice_out_of_range_mutes() {
     let msg = make_msg(local_player("", 1), sender_local([60.0, 0.0, 0.0], true));
     let mut plugin = plugin_with_state(msg);
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(!pass, "local voice beyond 50m should mute");
 }
 
@@ -291,7 +318,7 @@ fn local_voice_attenuation_applied() {
     let msg = make_msg(local_player("", 1), sender_local([25.0, 0.0, 0.0], true));
     let mut plugin = plugin_with_state(msg);
     let mut samples = vec![1.0f32; 480];
-    plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     // At 25m / 50m range: volume ~0.5 → samples should be around 0.5, not 1.0
     #[allow(clippy::cast_precision_loss)]
     let avg: f32 = samples.iter().sum::<f32>() / samples.len() as f32;
@@ -313,7 +340,7 @@ fn unknown_user_passes_through() {
     // Use a session ID that was NOT registered
     let unknown_session = 999u32;
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(unknown_session, &mut samples, 48000);
+    let pass = plugin.process_audio(unknown_session, &mut samples, 48000, 1);
     assert!(pass, "unknown user should pass through");
 }
 
@@ -325,6 +352,6 @@ fn unknown_user_passes_through() {
 fn no_state_passes_through() {
     let mut plugin = Plugin::new(); // no state loaded
     let mut samples = nonzero_samples();
-    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000);
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
     assert!(pass, "with no state, all audio should pass through");
 }

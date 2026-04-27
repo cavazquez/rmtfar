@@ -78,7 +78,7 @@ unsafe impl Sync for Inner {}
 impl Inner {
     fn open() -> anyhow::Result<Self> {
         use windows::Win32::System::Memory::{
-            MapViewOfFile, OpenFileMappingW, FILE_MAP_ALL_ACCESS,
+            FILE_MAP_ALL_ACCESS, MapViewOfFile, OpenFileMappingW,
         };
         let name: Vec<u16> = "MumbleLink\0".encode_utf16().collect();
         let handle = unsafe {
@@ -192,38 +192,40 @@ impl Drop for Inner {
 /// Coordinate conversion:
 /// - Arma 3: X = east, Y = north, Z = altitude ASL (metres)
 /// - Mumble:  X = right (east), Y = up (altitude), Z = forward (north)
-unsafe fn write_state(lm: *mut LinkedMem, state: &PlayerState) { unsafe {
-    let lm = &mut *lm;
+unsafe fn write_state(lm: *mut LinkedMem, state: &PlayerState) {
+    unsafe {
+        let lm = &mut *lm;
 
-    if lm.ui_version != 2 {
-        write_wstr(&mut lm.name, "RMTFAR");
-        write_wstr(&mut lm.description, "RMTFAR — Arma 3 radio mod for Mumble");
-        lm.ui_version = 2;
+        if lm.ui_version != 2 {
+            write_wstr(&mut lm.name, "RMTFAR");
+            write_wstr(&mut lm.description, "RMTFAR — Arma 3 radio mod for Mumble");
+            lm.ui_version = 2;
+        }
+        lm.ui_tick = lm.ui_tick.wrapping_add(1);
+
+        let [ax, ay, az] = state.pos;
+        // Arma: X=east, Y=north, Z=alt → Mumble: X=right(east), Y=up(alt), Z=forward(north)
+        lm.avatar_position = [ax, az, ay];
+
+        let front = state.front_vector();
+        lm.avatar_front = front;
+        lm.avatar_top = [0.0, 1.0, 0.0];
+
+        lm.camera_position = lm.avatar_position;
+        lm.camera_front = lm.avatar_front;
+        lm.camera_top = lm.avatar_top;
+
+        write_wstr(&mut lm.identity, &state.player_id);
+
+        let ctx = state.server_id.as_bytes();
+        let ctx_len = ctx.len().min(lm.context.len());
+        lm.context[..ctx_len].copy_from_slice(&ctx[..ctx_len]);
+        #[allow(clippy::cast_possible_truncation)]
+        {
+            lm.context_len = ctx_len as u32;
+        }
     }
-    lm.ui_tick = lm.ui_tick.wrapping_add(1);
-
-    let [ax, ay, az] = state.pos;
-    // Arma: X=east, Y=north, Z=alt → Mumble: X=right(east), Y=up(alt), Z=forward(north)
-    lm.avatar_position = [ax, az, ay];
-
-    let front = state.front_vector();
-    lm.avatar_front = front;
-    lm.avatar_top = [0.0, 1.0, 0.0];
-
-    lm.camera_position = lm.avatar_position;
-    lm.camera_front = lm.avatar_front;
-    lm.camera_top = lm.avatar_top;
-
-    write_wstr(&mut lm.identity, &state.player_id);
-
-    let ctx = state.server_id.as_bytes();
-    let ctx_len = ctx.len().min(lm.context.len());
-    lm.context[..ctx_len].copy_from_slice(&ctx[..ctx_len]);
-    #[allow(clippy::cast_possible_truncation)]
-    {
-        lm.context_len = ctx_len as u32;
-    }
-}}
+}
 
 fn write_wstr(buf: &mut [u16], s: &str) {
     let capacity = buf.len().saturating_sub(1);

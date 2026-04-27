@@ -357,29 +357,27 @@ pub unsafe extern "C" fn mumble_onUserTalkingStateChanged(
 ) {
     // Lazy registration: look up name the first time we see this user talk.
     let mut p = plugin();
-    if p.state.name_for_session(user_id).is_none() {
-        if let (Some(get_user_name), Some(free_memory)) =
+    if p.state.name_for_session(user_id).is_none()
+        && let (Some(get_user_name), Some(free_memory)) =
             (API_GET_USER_NAME.get(), API_FREE_MEMORY.get())
-        {
-            let mut name_ptr: *const c_char = std::ptr::null();
-            let rc = unsafe {
-                get_user_name(plugin_id(), conn, user_id, std::ptr::addr_of_mut!(name_ptr))
-            };
-            if rc == MUMBLE_STATUS_OK && !name_ptr.is_null() {
-                if let Ok(name_str) = unsafe { std::ffi::CStr::from_ptr(name_ptr) }.to_str() {
-                    let name = name_str.to_string();
-                    tracing::info!(user_id, %name, "RMTFAR: lazy identity registered");
-                    p.log_mumble_user_registered(user_id, &name);
-                    p.state.register_session(user_id, name);
-                }
-                unsafe { free_memory(plugin_id(), name_ptr.cast::<c_void>()) };
-            } else {
-                tracing::warn!(
-                    user_id,
-                    rc,
-                    "RMTFAR: getUserName failed in talking callback"
-                );
+    {
+        let mut name_ptr: *const c_char = std::ptr::null();
+        let rc =
+            unsafe { get_user_name(plugin_id(), conn, user_id, std::ptr::addr_of_mut!(name_ptr)) };
+        if rc == MUMBLE_STATUS_OK && !name_ptr.is_null() {
+            if let Ok(name_str) = unsafe { std::ffi::CStr::from_ptr(name_ptr) }.to_str() {
+                let name = name_str.to_string();
+                tracing::info!(user_id, %name, "RMTFAR: lazy identity registered");
+                p.log_mumble_user_registered(user_id, &name);
+                p.state.register_session(user_id, name);
             }
+            unsafe { free_memory(plugin_id(), name_ptr.cast::<c_void>()) };
+        } else {
+            tracing::warn!(
+                user_id,
+                rc,
+                "RMTFAR: getUserName failed in talking callback"
+            );
         }
     }
 

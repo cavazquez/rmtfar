@@ -39,10 +39,10 @@ impl MumbleLink {
     }
 
     pub fn update(&mut self, state: &PlayerState) {
-        if self.inner.is_none() {
-            if let Ok(i) = Inner::open() {
-                self.inner = Some(i);
-            }
+        if self.inner.is_none()
+            && let Ok(i) = Inner::open()
+        {
+            self.inner = Some(i);
         }
         if let Some(ref mut inner) = self.inner {
             inner.write(state);

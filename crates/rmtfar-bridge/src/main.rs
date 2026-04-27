@@ -11,8 +11,8 @@ mod state;
 use anyhow::Result;
 use clap::Parser;
 use rmtfar_protocol::{
-    PlayerState, PlayerSummary, RadioStateMessage, BRIDGE_RECV_PORT, PLUGIN_RECV_PORT,
-    PROTOCOL_VERSION,
+    BRIDGE_RECV_PORT, PLUGIN_RECV_PORT, PROTOCOL_VERSION, PlayerState, PlayerSummary,
+    RadioStateMessage,
 };
 use state::PlayerStore;
 use std::net::{SocketAddr, UdpSocket};

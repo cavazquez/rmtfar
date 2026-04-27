@@ -23,7 +23,7 @@ pub mod state;
 #[cfg(test)]
 mod tests;
 
-use rmtfar_protocol::{distance, RadioStateMessage, LOCAL_VOICE_RANGE_M, PLUGIN_RECV_PORT};
+use rmtfar_protocol::{LOCAL_VOICE_RANGE_M, PLUGIN_RECV_PORT, RadioStateMessage, distance};
 use state::PluginState;
 use std::collections::HashMap;
 use std::fs::{File, OpenOptions};
@@ -181,10 +181,10 @@ impl Plugin {
     ) {
         const MAP_FAIL_MIN_INTERVAL: Duration = Duration::from_secs(2);
         let now = Instant::now();
-        if let Some(t) = self.map_fail_throttle.get(&mumble_id) {
-            if now.saturating_duration_since(*t) < MAP_FAIL_MIN_INTERVAL {
-                return;
-            }
+        if let Some(t) = self.map_fail_throttle.get(&mumble_id)
+            && now.saturating_duration_since(*t) < MAP_FAIL_MIN_INTERVAL
+        {
+            return;
         }
         self.map_fail_throttle.insert(mumble_id, now);
         self.map_fail_throttle

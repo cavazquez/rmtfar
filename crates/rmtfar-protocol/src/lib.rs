@@ -257,7 +257,16 @@ impl PlayerSummary {
                 (false, String::new(), String::new(), 0, 0.0, String::new())
             };
 
-        let (tuned_sr_freq, tuned_sr_channel, tuned_sr_stereo, tuned_sr_code, tuned_lr_freq, tuned_lr_channel, tuned_lr_stereo, tuned_lr_code) = {
+        let (
+            tuned_sr_freq,
+            tuned_sr_channel,
+            tuned_sr_stereo,
+            tuned_sr_code,
+            tuned_lr_freq,
+            tuned_lr_channel,
+            tuned_lr_stereo,
+            tuned_lr_code,
+        ) = {
             let sr = state
                 .radio_sr
                 .as_ref()
