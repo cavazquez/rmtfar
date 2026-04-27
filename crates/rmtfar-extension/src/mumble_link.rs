@@ -74,11 +74,14 @@ mod win32 {
             offset_low: u32,
             bytes_to_map: usize,
         ) -> *mut c_void;
+        pub fn UnmapViewOfFile(base_address: *mut c_void) -> i32;
+        pub fn CloseHandle(object: HANDLE) -> i32;
     }
 }
 
 #[cfg(windows)]
 struct Inner {
+    handle: win32::HANDLE,
     ptr: *mut LinkedMem,
 }
 
@@ -86,6 +89,16 @@ struct Inner {
 unsafe impl Send for Inner {}
 #[cfg(windows)]
 unsafe impl Sync for Inner {}
+
+#[cfg(windows)]
+impl Drop for Inner {
+    fn drop(&mut self) {
+        unsafe {
+            win32::UnmapViewOfFile(self.ptr.cast::<std::ffi::c_void>());
+            win32::CloseHandle(self.handle);
+        }
+    }
+}
 
 #[cfg(windows)]
 impl Inner {
@@ -112,9 +125,11 @@ impl Inner {
             win32::MapViewOfFile(handle, win32::FILE_MAP_ALL_ACCESS, 0, 0, LINKED_MEM_SIZE)
         };
         if view.is_null() {
+            unsafe { win32::CloseHandle(handle) };
             return Err("MapViewOfFile returned null");
         }
         Ok(Self {
+            handle,
             ptr: view as *mut LinkedMem,
         })
     }

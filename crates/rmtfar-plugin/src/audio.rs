@@ -12,7 +12,7 @@ pub fn apply_volume(samples: &mut [f32], volume: f32) {
 /// Apply ear preference to interleaved audio.
 /// `stereo_mode`: 0=both, 1=left, 2=right.
 pub fn apply_stereo_mode(samples: &mut [f32], channel_count: usize, stereo_mode: u8) {
-    if channel_count < 2 || stereo_mode == 0 {
+    if channel_count < 2 || stereo_mode == 0 || stereo_mode > 2 {
         return;
     }
     for frame in samples.chunks_mut(channel_count) {
