@@ -10,11 +10,11 @@ private _backItems = if (isNull _bp) then {
 } else {
     str (itemCargo _bp)
 };
-// Campos precalculados: el parser de Arma falló con str(...) en línea dentro del array de format (RPT «Falta )»).
+// Campos precalculados (evitar str(...) dentro del array de format) + comando A3: weaponsItems, no weaponItems.
 private _fpAs = str (assignedItems player);
 private _fpUs = str (uniformItems player);
 private _fpVs = str (vestItems player);
-private _fpWs = str (weaponItems player);
+private _fpWs = str (weaponsItems player);
 private _fpIs = str (items player);
 private _fpFc = str (faction player);
 private _fp = format ["%1|%2|%3|%4|%5|%6|%7", _fpAs, _fpUs, _fpVs, _fpWs, _backItems, _fpIs, _fpFc];
@@ -29,7 +29,7 @@ if (_defLr < 0) then { _defLr = 0; };
 
 private _candidates = [];
 { _candidates pushBack _x } forEach (assignedItems player);
-{ _candidates pushBack _x } forEach (weaponItems player);
+{ private _w = _x select 0; if (_w != "") then { _candidates pushBack _w }; } forEach (weaponsItems player);
 { _candidates pushBack _x } forEach (vestItems player);
 { _candidates pushBack _x } forEach (uniformItems player);
 private _bc = backpackContainer player;
