@@ -331,13 +331,13 @@ fn build_message(store: &PlayerStore, local_id: &str) -> RadioStateMessage {
 ///
 /// # Safety
 /// Pointers provided by Arma 3 are always valid within the call.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn RVExtension(
     output: *mut c_char,
     output_size: c_int,
     function: *const c_char,
 ) {
-    let func = CStr::from_ptr(function).to_string_lossy();
+    let func = unsafe { CStr::from_ptr(function) }.to_string_lossy();
     let result = match func.as_ref() {
         "version" => VERSION,
         "ping" => "pong",
@@ -353,7 +353,7 @@ pub unsafe extern "C" fn RVExtension(
 ///
 /// # Safety
 /// Pointers provided by Arma 3 are always valid within the call.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn RVExtensionArgs(
     output: *mut c_char,
     output_size: c_int,
@@ -361,11 +361,11 @@ pub unsafe extern "C" fn RVExtensionArgs(
     args: *const *const c_char,
     arg_count: c_int,
 ) -> c_int {
-    let func = CStr::from_ptr(function).to_string_lossy();
+    let func = unsafe { CStr::from_ptr(function) }.to_string_lossy();
 
     match func.as_ref() {
         "init" if arg_count >= 1 => {
-            let local_id = CStr::from_ptr(*args).to_string_lossy();
+            let local_id = unsafe { CStr::from_ptr(*args) }.to_string_lossy();
             match handle_init(&local_id) {
                 Ok(()) => {
                     write_output(output, output_size, "0");
@@ -379,7 +379,7 @@ pub unsafe extern "C" fn RVExtensionArgs(
             }
         }
         "send" if arg_count >= 1 => {
-            let json = CStr::from_ptr(*args).to_string_lossy();
+            let json = unsafe { CStr::from_ptr(*args) }.to_string_lossy();
             match handle_send(json.as_bytes()) {
                 Ok(()) => {
                     write_output(output, output_size, "0");
@@ -393,7 +393,7 @@ pub unsafe extern "C" fn RVExtensionArgs(
             }
         }
         "forget" if arg_count >= 1 => {
-            let id = CStr::from_ptr(*args).to_string_lossy();
+            let id = unsafe { CStr::from_ptr(*args) }.to_string_lossy();
             match handle_forget(id.trim()) {
                 Ok(()) => {
                     write_output(output, output_size, "0");
@@ -421,7 +421,7 @@ pub unsafe extern "C" fn RVExtensionArgs(
 ///
 /// # Safety
 /// Pointers provided by Arma 3 are always valid within the call.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn RVExtensionVersion(output: *mut c_char, output_size: c_int) {
     write_output(output, output_size, VERSION);
 }
@@ -430,7 +430,7 @@ pub unsafe extern "C" fn RVExtensionVersion(output: *mut c_char, output_size: c_
 // Helpers
 // ---------------------------------------------------------------------------
 
-unsafe fn write_output(output: *mut c_char, size: c_int, data: &str) {
+fn write_output(output: *mut c_char, size: c_int, data: &str) {
     if output.is_null() || size <= 0 {
         return;
     }
@@ -438,8 +438,10 @@ unsafe fn write_output(output: *mut c_char, size: c_int, data: &str) {
     #[allow(clippy::cast_sign_loss)]
     let capacity = (size as usize).saturating_sub(1);
     let len = bytes.len().min(capacity);
-    std::ptr::copy_nonoverlapping(bytes.as_ptr(), output.cast::<u8>(), len);
-    *output.add(len) = 0;
+    unsafe {
+        std::ptr::copy_nonoverlapping(bytes.as_ptr(), output.cast::<u8>(), len);
+        *output.add(len) = 0;
+    }
 }
 
 #[cfg(test)]

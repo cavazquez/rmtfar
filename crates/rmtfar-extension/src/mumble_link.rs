@@ -207,7 +207,7 @@ impl Drop for Inner {
 /// - Arma 3: X = east, Y = north, Z = altitude ASL
 /// - Mumble: X = right (east), Y = up (altitude), Z = forward (north)
 unsafe fn write_state(lm: *mut LinkedMem, state: &PlayerState) {
-    let lm = &mut *lm;
+    let lm = unsafe { &mut *lm };
 
     if lm.ui_version != 2 {
         write_wstr(&mut lm.name, "RMTFAR");

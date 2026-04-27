@@ -87,7 +87,7 @@ fn plugin_id() -> mumble_plugin_id_t {
 /// # Safety
 /// Signature: `mumble_error_t mumble_init(mumble_plugin_id_t id)`
 /// Called by Mumble with just the assigned plugin ID — no extra args.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_init(id: mumble_plugin_id_t) -> mumble_error_t {
     let _ = PLUGIN_ID.set(id);
     if plugin().start() {
@@ -98,13 +98,13 @@ pub unsafe extern "C" fn mumble_init(id: mumble_plugin_id_t) -> mumble_error_t {
 }
 
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_shutdown() {
     plugin().stop();
 }
 
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_getName() -> MumbleStringWrapper {
     static NAME: &[u8] = b"RMTFAR\0";
     MumbleStringWrapper {
@@ -118,7 +118,7 @@ pub unsafe extern "C" fn mumble_getName() -> MumbleStringWrapper {
 /// Must return the Mumble API version the plugin was built against.
 /// Mumble 1.5.x only supports plugins requesting 1.0.x or 1.2.x.
 /// Requesting 1.4.0 falls through to an unsupported branch and fails silently.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_getAPIVersion() -> mumble_version_t {
     mumble_version_t {
         major: 1,
@@ -128,7 +128,7 @@ pub unsafe extern "C" fn mumble_getAPIVersion() -> mumble_version_t {
 }
 
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_getVersion() -> mumble_version_t {
     mumble_version_t {
         major: 0,
@@ -138,7 +138,7 @@ pub unsafe extern "C" fn mumble_getVersion() -> mumble_version_t {
 }
 
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_getAuthor() -> MumbleStringWrapper {
     static A: &[u8] = b"RMTFAR Contributors\0";
     MumbleStringWrapper {
@@ -149,7 +149,7 @@ pub unsafe extern "C" fn mumble_getAuthor() -> MumbleStringWrapper {
 }
 
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_getDescription() -> MumbleStringWrapper {
     static D: &[u8] = b"Radio communication mod for Arma 3 (RMTFAR)\0";
     MumbleStringWrapper {
@@ -165,18 +165,18 @@ pub unsafe extern "C" fn mumble_getDescription() -> MumbleStringWrapper {
 /// here rather than storing the pointer (the struct is gone after init returns).
 ///
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_registerAPIFunctions(api: *const c_void) {
     if api.is_null() {
         return;
     }
-    let api_struct = &*(api.cast::<MumbleAPI>());
+    let api_struct = unsafe { &*(api.cast::<MumbleAPI>()) };
     let _ = API_FREE_MEMORY.set(api_struct.free_memory);
     let _ = API_GET_USER_NAME.set(api_struct.get_user_name);
 }
 
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_releaseResource(_pointer: *const c_void) {}
 
 // ---------------------------------------------------------------------------
@@ -188,7 +188,7 @@ pub unsafe extern "C" fn mumble_releaseResource(_pointer: *const c_void) {}
 /// Without this export Mumble never routes audio through the plugin.
 ///
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_getFeatures() -> u32 {
     2 // MUMBLE_FEATURE_AUDIO
 }
@@ -198,7 +198,7 @@ pub unsafe extern "C" fn mumble_getFeatures() -> u32 {
 /// Returns `MUMBLE_FEATURE_NONE`.
 ///
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_deactivateFeatures(_features: u32) -> u32 {
     0 // MUMBLE_FEATURE_NONE — nothing deactivated
 }
@@ -212,7 +212,7 @@ pub unsafe extern "C" fn mumble_deactivateFeatures(_features: u32) -> u32 {
 ///
 /// # Safety
 /// `output_pcm` points to `sample_count * channel_count` valid floats.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_onAudioSourceFetched(
     output_pcm: *mut f32,
     sample_count: u32,
@@ -225,7 +225,7 @@ pub unsafe extern "C" fn mumble_onAudioSourceFetched(
         return false;
     }
     let total = (sample_count as usize) * (channel_count as usize);
-    let samples = std::slice::from_raw_parts_mut(output_pcm, total);
+    let samples = unsafe { std::slice::from_raw_parts_mut(output_pcm, total) };
 
     // process_audio returns:
     //   true  = pass audio through (possibly with DSP applied in-place)
@@ -255,7 +255,7 @@ pub unsafe extern "C" fn mumble_onAudioSourceFetched(
 /// `mumble_session_id → username` so the audio callback can look them up.
 ///
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_onUserAdded(
     connection: mumble_connection_t,
     user_id: mumble_userid_t,
@@ -272,12 +272,14 @@ pub unsafe extern "C" fn mumble_onUserAdded(
     };
 
     let mut name_ptr: *const c_char = std::ptr::null();
-    let rc = get_user_name(
-        plugin_id(),
-        connection,
-        user_id,
-        std::ptr::addr_of_mut!(name_ptr),
-    );
+    let rc = unsafe {
+        get_user_name(
+            plugin_id(),
+            connection,
+            user_id,
+            std::ptr::addr_of_mut!(name_ptr),
+        )
+    };
     tracing::info!(
         user_id,
         rc,
@@ -286,14 +288,14 @@ pub unsafe extern "C" fn mumble_onUserAdded(
     );
 
     if rc == MUMBLE_STATUS_OK && !name_ptr.is_null() {
-        if let Ok(name_str) = std::ffi::CStr::from_ptr(name_ptr).to_str() {
+        if let Ok(name_str) = unsafe { std::ffi::CStr::from_ptr(name_ptr) }.to_str() {
             let name = name_str.to_string();
             tracing::info!(user_id, %name, "RMTFAR: registering identity");
             let mut p = plugin();
             p.log_mumble_user_registered(user_id, &name);
             p.state.register_session(user_id, name);
         }
-        free_memory(plugin_id(), name_ptr.cast::<c_void>());
+        unsafe { free_memory(plugin_id(), name_ptr.cast::<c_void>()) };
     } else {
         tracing::warn!(user_id, rc, "RMTFAR: getUserName failed or null ptr");
     }
@@ -302,7 +304,7 @@ pub unsafe extern "C" fn mumble_onUserAdded(
 /// Called when a user leaves the server. Cleans up the cached mapping.
 ///
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_onUserRemoved(
     _connection: mumble_connection_t,
     user_id: mumble_userid_t,
@@ -316,7 +318,7 @@ pub unsafe extern "C" fn mumble_onUserRemoved(
 // ---------------------------------------------------------------------------
 
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_onUserIdentityChanged(
     _user_id: mumble_userid_t,
     _identity: *const c_char,
@@ -324,13 +326,13 @@ pub unsafe extern "C" fn mumble_onUserIdentityChanged(
 }
 
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_onServerConnected(_conn: mumble_connection_t) {
     tracing::info!("RMTFAR: connected to server");
 }
 
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_onServerDisconnected(_conn: mumble_connection_t) {
     tracing::info!("RMTFAR: disconnected from server");
     let mut p = plugin();
@@ -347,7 +349,7 @@ pub unsafe extern "C" fn mumble_onServerDisconnected(_conn: mumble_connection_t)
 /// varies across Mumble builds).
 ///
 /// # Safety
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn mumble_onUserTalkingStateChanged(
     conn: mumble_connection_t,
     user_id: mumble_userid_t,
@@ -360,15 +362,17 @@ pub unsafe extern "C" fn mumble_onUserTalkingStateChanged(
             (API_GET_USER_NAME.get(), API_FREE_MEMORY.get())
         {
             let mut name_ptr: *const c_char = std::ptr::null();
-            let rc = get_user_name(plugin_id(), conn, user_id, std::ptr::addr_of_mut!(name_ptr));
+            let rc = unsafe {
+                get_user_name(plugin_id(), conn, user_id, std::ptr::addr_of_mut!(name_ptr))
+            };
             if rc == MUMBLE_STATUS_OK && !name_ptr.is_null() {
-                if let Ok(name_str) = std::ffi::CStr::from_ptr(name_ptr).to_str() {
+                if let Ok(name_str) = unsafe { std::ffi::CStr::from_ptr(name_ptr) }.to_str() {
                     let name = name_str.to_string();
                     tracing::info!(user_id, %name, "RMTFAR: lazy identity registered");
                     p.log_mumble_user_registered(user_id, &name);
                     p.state.register_session(user_id, name);
                 }
-                free_memory(plugin_id(), name_ptr.cast::<c_void>());
+                unsafe { free_memory(plugin_id(), name_ptr.cast::<c_void>()) };
             } else {
                 tracing::warn!(
                     user_id,

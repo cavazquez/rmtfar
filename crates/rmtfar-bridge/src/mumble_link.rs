@@ -192,7 +192,7 @@ impl Drop for Inner {
 /// Coordinate conversion:
 /// - Arma 3: X = east, Y = north, Z = altitude ASL (metres)
 /// - Mumble:  X = right (east), Y = up (altitude), Z = forward (north)
-unsafe fn write_state(lm: *mut LinkedMem, state: &PlayerState) {
+unsafe fn write_state(lm: *mut LinkedMem, state: &PlayerState) { unsafe {
     let lm = &mut *lm;
 
     if lm.ui_version != 2 {
@@ -223,7 +223,7 @@ unsafe fn write_state(lm: *mut LinkedMem, state: &PlayerState) {
     {
         lm.context_len = ctx_len as u32;
     }
-}
+}}
 
 fn write_wstr(buf: &mut [u16], s: &str) {
     let capacity = buf.len().saturating_sub(1);
