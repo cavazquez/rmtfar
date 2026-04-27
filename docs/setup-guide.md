@@ -85,6 +85,11 @@ Open the debug console or use a radio action:
 - Confirm both players are on the same frequency and channel
 - Check the Arma 3 RPT logs for RMTFAR errors
 
+**RPT log is too noisy:**
+- By default `RMTFAR_logSends` is disabled (`false`) in `XEH_preInit.sqf`
+- For temporary debugging only, set in mission init:
+  `missionNamespace setVariable ["RMTFAR_logSends", true];`
+
 **Port 9501 already in use:**
 - Only one Mumble instance can run at a time with RMTFAR
 - Check that no other application is using UDP port 9501: `ss -ulnp | grep 9501`

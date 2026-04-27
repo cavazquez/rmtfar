@@ -15,10 +15,12 @@
 
 use rmtfar_protocol::RadioStateMessage;
 use std::collections::HashMap;
+use std::time::{Duration, Instant};
 
 #[derive(Default)]
 pub struct PluginState {
     last: Option<RadioStateMessage>,
+    last_update_at: Option<Instant>,
     /// Mumble numeric session ID → Mumble username.
     session_to_name: HashMap<u32, String>,
 }
@@ -26,9 +28,14 @@ pub struct PluginState {
 impl PluginState {
     pub fn update(&mut self, msg: RadioStateMessage) {
         self.last = Some(msg);
+        self.last_update_at = Some(Instant::now());
     }
 
-    pub fn last_message(&self) -> Option<&RadioStateMessage> {
+    pub fn last_message_fresh(&self, ttl: Duration) -> Option<&RadioStateMessage> {
+        let ts = self.last_update_at?;
+        if Instant::now().saturating_duration_since(ts) > ttl {
+            return None;
+        }
         self.last.as_ref()
     }
 
@@ -49,4 +56,34 @@ impl PluginState {
 
     // Legacy stub — kept so ffi.rs compiles. Not needed with username-based mapping.
     pub fn register_identity(&mut self, _mumble_id: &str, _player_id: String) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::PluginState;
+    use rmtfar_protocol::{PlayerSummary, RadioStateMessage};
+    use std::time::Duration;
+
+    fn empty_msg() -> RadioStateMessage {
+        RadioStateMessage::new("srv".into(), 1, "local".into(), Vec::<PlayerSummary>::new())
+    }
+
+    #[test]
+    fn ttl_keeps_recent_message() {
+        let mut state = PluginState::default();
+        state.update(empty_msg());
+        assert!(
+            state
+                .last_message_fresh(Duration::from_millis(100))
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn ttl_expires_stale_message() {
+        let mut state = PluginState::default();
+        state.update(empty_msg());
+        std::thread::sleep(Duration::from_millis(5));
+        assert!(state.last_message_fresh(Duration::from_millis(1)).is_none());
+    }
 }

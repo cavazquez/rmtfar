@@ -38,6 +38,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 // ---------------------------------------------------------------------------
 
 static PLUGIN: OnceLock<Mutex<Plugin>> = OnceLock::new();
+const RADIO_STATE_TTL: Duration = Duration::from_secs(2);
 
 /// Log de tráfico UDP :9501 (UTF-8 lossy); se trunca al iniciar el plugin. Windows: `%TEMP%\\rmtfar-plugin-udp.log`.
 fn udp_recv_log_path() -> PathBuf {
@@ -353,7 +354,7 @@ impl Plugin {
     ) -> bool {
         self.poll();
 
-        let radio = self.state.last_message().cloned();
+        let radio = self.state.last_message_fresh(RADIO_STATE_TTL).cloned();
 
         let (
             local_pos,

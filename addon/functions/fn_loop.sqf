@@ -3,7 +3,7 @@
 // Broadcast local state via publicVariable, gather all players, send to extension.
 
 while {RMTFAR_enabled} do {
-    if (!isNull player && {alive player}) then {
+    if (!isNull player) then {
         [] call RMTFAR_fnc_resolveRadioModel;
         // Broadcast local player's radio state so other clients can read it
         player setVariable ["rmtfar_pttLocal",   RMTFAR_pttLocal,      true];

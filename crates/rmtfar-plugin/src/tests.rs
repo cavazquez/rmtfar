@@ -138,6 +138,20 @@ fn plugin_with_state(msg: RadioStateMessage) -> Plugin {
     plugin
 }
 
+#[test]
+fn stale_state_falls_back_to_passthrough() {
+    let msg = make_msg(
+        local_player("43.0", 1),
+        sender_sr("43.0", 1, 500.0, [200.0, 0.0, 0.0], true, true, true, false),
+    );
+    let mut plugin = plugin_with_state(msg);
+    std::thread::sleep(std::time::Duration::from_secs(3));
+
+    let mut samples = nonzero_samples();
+    let pass = plugin.process_audio(SENDER_SESSION, &mut samples, 48000, 1);
+    assert!(pass, "stale state should fallback to passthrough");
+}
+
 fn nonzero_samples() -> Vec<f32> {
     vec![0.5f32; 480]
 }

@@ -9,7 +9,7 @@ missionNamespace setVariable ["RMTFAR_ghosts", []];
 
 // RPT cada ~2 s con PTT local y retorno de callExtension. Desactivar:
 //   missionNamespace setVariable ["RMTFAR_logSends", false];
-missionNamespace setVariable ["RMTFAR_logSends", true];
+missionNamespace setVariable ["RMTFAR_logSends", false];
 missionNamespace setVariable ["RMTFAR_showRadioHud", true];
 missionNamespace setVariable ["RMTFAR_showStartupHints", true];
 missionNamespace setVariable ["RMTFAR_showIntercomDebug", false];
