@@ -10,7 +10,7 @@
 //! The plugin receives [`RadioStateMessage`] from the Arma extension (or bridge) over UDP :9501
 //! and uses that to decide mute/volume per user.
 //!
-//! Every UDP datagram is optionally appended to a log file (see `start()`): by default
+//! Each plugin load truncates then logs every UDP datagram to a file (see `start()`): by default
 //! `{TEMP}/rmtfar-plugin-udp.log` — disable with env `RMTFAR_UDP_LOG=0`, override path with
 //! `RMTFAR_UDP_LOG_PATH`.
 
@@ -37,7 +37,7 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 static PLUGIN: OnceLock<Mutex<Plugin>> = OnceLock::new();
 
-/// Log fijo de todo el tráfico UDP :9501 (UTF-8 lossy). Windows: `%TEMP%\\rmtfar-plugin-udp.log`.
+/// Log de tráfico UDP :9501 (UTF-8 lossy); se trunca al iniciar el plugin. Windows: `%TEMP%\\rmtfar-plugin-udp.log`.
 fn udp_recv_log_path() -> PathBuf {
     std::env::var("RMTFAR_UDP_LOG_PATH").map_or_else(
         |_| std::env::temp_dir().join("rmtfar-plugin-udp.log"),
@@ -56,7 +56,7 @@ pub(crate) struct Plugin {
     pub(crate) state: PluginState,
     socket: Option<UdpSocket>,
     buf: Vec<u8>,
-    /// Cada datagrama recibido en :9501 (una línea por paquete). `None` si `RMTFAR_UDP_LOG=0`.
+    /// Truncado en `start()`; luego cada datagrama :9501 (una línea por paquete). `None` si `RMTFAR_UDP_LOG=0`.
     udp_recv_log: Option<BufWriter<File>>,
     /// Throttle `tracing::info!` for each UDP `radio_state` (high rate from Arma).
     last_udp_info_log: Option<Instant>,
@@ -92,7 +92,12 @@ impl Plugin {
 
         if log_enabled {
             let path = udp_recv_log_path();
-            match OpenOptions::new().create(true).append(true).open(&path) {
+            match OpenOptions::new()
+                .create(true)
+                .write(true)
+                .truncate(true)
+                .open(&path)
+            {
                 Ok(f) => {
                     let mut w = BufWriter::new(f);
                     let ms = SystemTime::now()
