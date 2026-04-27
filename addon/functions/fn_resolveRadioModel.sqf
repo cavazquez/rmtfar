@@ -4,14 +4,20 @@
 
 if (!hasInterface) exitWith {};
 
+private _bp = backpackContainer player;
+private _backItems = if (isNull _bp) then {
+    ""
+} else {
+    str (itemCargo _bp)
+};
 private _fp = format [
     "%1|%2|%3|%4|%5|%6|%7",
-    str assignedItems player,
-    str uniformItems player,
-    str vestItems player,
-    str weaponItems player,
-    if (isNull (backpackContainer player)) then {""} else {str itemCargo backpackContainer player},
-    str items player,
+    str (assignedItems player),
+    str (uniformItems player),
+    str (vestItems player),
+    str (weaponItems player),
+    _backItems,
+    str (items player),
     faction player
 ];
 if (_fp isEqualTo (missionNamespace getVariable ["rmtfar_radio_fingerprint", ""])) exitWith {};
