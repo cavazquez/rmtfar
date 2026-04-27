@@ -32,14 +32,20 @@ while {RMTFAR_enabled} do {
         // Send state for every player to the extension.
         // Each client sends all players so the local bridge can compute
         // distances and audio decisions for this machine's perspective.
+        // All payloads go in a single callExtension call (send_batch) to
+        // reduce N lock acquisitions + N UDP sends to just 1 each.
+        private _payloads = [];
         {
             if (!isNull _x) then {
                 private _state = [_x] call RMTFAR_fnc_getPlayerState;
-                [_state] call RMTFAR_fnc_sendState;
+                _payloads pushBack ([_state] call RMTFAR_fnc_buildStatePayload);
             };
         } forEach allPlayers;
+        if (count _payloads > 0) then {
+            "rmtfar" callExtension ["send_batch", _payloads];
+        };
 
-        // Modo DEBUG: jugadores sintéticos (mismo v1|... que jugadores reales)
+        // Modo DEBUG: jugadores sintéticos — usan send individual (ya tienen el hashmap listo)
         if (missionNamespace getVariable ["RMTFAR_debugMode", false]) then {
             {
                 [_x] call RMTFAR_fnc_sendState;

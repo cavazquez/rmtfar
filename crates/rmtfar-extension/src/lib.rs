@@ -338,6 +338,37 @@ fn handle_send(json: &[u8]) -> Result<(), String> {
     Ok(())
 }
 
+/// Procesa un lote de payloads `v1|...` en una sola llamada.
+///
+/// Adquiere el lock una vez, actualiza todos los jugadores y envía
+/// un único paquete UDP al plugin — en lugar de N llamadas a `handle_send`.
+fn handle_send_batch(payloads: &[&[u8]]) -> Result<(), String> {
+    if payloads.is_empty() {
+        return Ok(());
+    }
+    let mut s = get_state().lock().map_err(|e| format!("lock: {e}"))?;
+    for raw in payloads {
+        let player_state = parse_player_state(raw)?;
+        if player_state.v != PROTOCOL_VERSION {
+            return Err(format!("bad version: {}", player_state.v));
+        }
+        let is_local = s
+            .local_id
+            .as_ref()
+            .is_some_and(|id| id == &player_state.player_id);
+        if is_local {
+            s.mumble.update(&player_state);
+        }
+        s.store.update(player_state);
+    }
+    let local_id = s.local_id.clone().unwrap_or_default();
+    let msg = build_message(&s.store, &local_id);
+    if let Ok(json) = serde_json::to_vec(&msg) {
+        let _ = s.sender.send(&json);
+    }
+    Ok(())
+}
+
 fn handle_forget(player_id: &str) -> Result<(), String> {
     let mut s = get_state().lock().map_err(|e| format!("lock: {e}"))?;
     let _ = s.store.remove(player_id);
@@ -429,6 +460,24 @@ pub unsafe extern "C" fn RVExtensionArgs(
                 }
             }
         }
+        "send_batch" if arg_count >= 1 => {
+            #[allow(clippy::cast_sign_loss)] // arg_count >= 1 guard above ensures non-negative
+            let count = arg_count as usize;
+            let payloads: Vec<&[u8]> = (0..count)
+                .map(|i| unsafe { CStr::from_ptr(*args.add(i)).to_bytes() })
+                .collect();
+            match handle_send_batch(&payloads) {
+                Ok(()) => {
+                    write_output(output, output_size, "0");
+                    0
+                }
+                Err(e) => {
+                    let msg = format!("ERR:{e}");
+                    write_output(output, output_size, &msg);
+                    -1
+                }
+            }
+        }
         "forget" if arg_count >= 1 => {
             let id = unsafe { CStr::from_ptr(*args) }.to_string_lossy();
             match handle_forget(id.trim()) {
@@ -478,6 +527,41 @@ fn write_output(output: *mut c_char, size: c_int, data: &str) {
     unsafe {
         std::ptr::copy_nonoverlapping(bytes.as_ptr(), output.cast::<u8>(), len);
         *output.add(len) = 0;
+    }
+}
+
+#[cfg(test)]
+mod batch_tests {
+    use super::handle_send_batch;
+
+    const P1: &[u8] = b"v1|Alice|srv|0|10|20|5|90|1|1||0|1|0|43.0|1||1|1|5000|0|0|0|||1|1|";
+    const P2: &[u8] = b"v1|Bob|srv|0|30|40|5|180|1|1||0|0|1|43.0|1|30.0|2|1|5000|20000|0|0|||1|1|";
+
+    #[test]
+    fn batch_empty_is_ok() {
+        assert!(handle_send_batch(&[]).is_ok());
+    }
+
+    #[test]
+    fn batch_single_player_ok() {
+        assert!(handle_send_batch(&[P1]).is_ok());
+    }
+
+    #[test]
+    fn batch_multiple_players_ok() {
+        assert!(handle_send_batch(&[P1, P2]).is_ok());
+    }
+
+    #[test]
+    fn batch_invalid_payload_errors() {
+        let bad: &[u8] = b"garbage|not|a|valid|payload";
+        assert!(handle_send_batch(&[P1, bad]).is_err());
+    }
+
+    #[test]
+    fn batch_wrong_field_count_errors() {
+        let bad = b"v1|only|three";
+        assert!(handle_send_batch(&[bad.as_ref()]).is_err());
     }
 }
 

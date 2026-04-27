@@ -8,6 +8,7 @@ class CfgFunctions {
             class loop            {};
             class getPlayerState  {};
             class sendState       {};
+            class buildStatePayload {};
             class escapeJsonString {};
             class setFrequency    {};
             class setFrequencyLR  {};
