@@ -91,9 +91,9 @@ impl Plugin {
             .with_writer(std::io::stderr)
             .try_init();
 
-        let log_enabled = std::env::var("RMTFAR_UDP_LOG")
-            .map(|v| v != "0" && !v.eq_ignore_ascii_case("false"))
-            .unwrap_or(true);
+        let log_enabled = std::env::var("RMTFAR_UDP_LOG").map_or(true, |v| {
+            v != "0" && !v.eq_ignore_ascii_case("false")
+        });
 
         if log_enabled {
             let path = udp_recv_log_path();
@@ -105,10 +105,7 @@ impl Plugin {
             {
                 Ok(f) => {
                     let mut w = BufWriter::new(f);
-                    let ms = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .map(|d| d.as_millis())
-                        .unwrap_or(0);
+                    let ms = Self::udp_log_ms();
                     let _ = writeln!(
                         w,
                         "[{ms}] --- RMTFAR UDP log start (every datagram on :{PLUGIN_RECV_PORT}) ---"
@@ -159,8 +156,7 @@ impl Plugin {
     fn udp_log_ms() -> u128 {
         SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0)
+            .map_or(0, |d| d.as_millis())
     }
 
     /// Registro en archivo UDP (si está habilitado): nombre Mumble visto para `mumble_id`.
@@ -192,8 +188,9 @@ impl Plugin {
             }
         }
         self.map_fail_throttle.insert(mumble_id, now);
-        self.map_fail_throttle
-            .retain(|_, t| now.saturating_duration_since(*t) < Duration::from_secs(120));
+        self.map_fail_throttle.retain(|_, t| {
+            now.saturating_duration_since(*t) < 2 * Duration::from_secs(60)
+        });
 
         let Some(ref mut w) = self.udp_recv_log else {
             return;
@@ -224,10 +221,7 @@ impl Plugin {
         let Some(ref mut w) = self.udp_recv_log else {
             return;
         };
-        let ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0);
+        let ms = Self::udp_log_ms();
         let chunk = &self.buf[..len];
         let text = String::from_utf8_lossy(chunk);
         let _ = writeln!(w, "[{ms}] bytes={len} {text}");
@@ -256,10 +250,7 @@ impl Plugin {
         let Some(ref mut w) = self.udp_recv_log else {
             return;
         };
-        let ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .map(|d| d.as_millis())
-            .unwrap_or(0);
+        let ms = Self::udp_log_ms();
         let _ = writeln!(
             w,
             "[{ms}] AUDIO mumble_id={} local={} sender={} allow={} reason={} dist_m={} tx_type={} tx_freq={} tx_ch={} tx_range_m={} los={} tuned_sr={}/ch{} tuned_lr={}/ch{}",
@@ -337,10 +328,7 @@ impl Plugin {
                 }
                 Err(e) => {
                     if let Some(ref mut w) = self.udp_recv_log {
-                        let ms = SystemTime::now()
-                            .duration_since(UNIX_EPOCH)
-                            .map(|d| d.as_millis())
-                            .unwrap_or(0);
+                        let ms = Self::udp_log_ms();
                         let _ = writeln!(w, "[{ms}] PARSE_ERR {e}");
                         let _ = w.flush();
                     }
