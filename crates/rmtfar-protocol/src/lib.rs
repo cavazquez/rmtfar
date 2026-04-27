@@ -233,8 +233,11 @@ impl PlayerSummary {
     #[allow(clippy::similar_names)]
     pub fn from_state(state: &PlayerState) -> Self {
         let (transmitting_radio, radio_type, radio_freq, radio_channel, radio_range_m, radio_code) =
-            if state.is_transmitting_sr() {
-                let cfg = state.radio_sr.as_ref().unwrap();
+            if let Some(cfg) = state
+                .radio_sr
+                .as_ref()
+                .filter(|_| state.is_transmitting_sr())
+            {
                 (
                     true,
                     "sr".into(),
@@ -243,8 +246,11 @@ impl PlayerSummary {
                     cfg.range_m.unwrap_or(RADIO_SR_RANGE_M),
                     cfg.code.clone(),
                 )
-            } else if state.is_transmitting_lr() {
-                let cfg = state.radio_lr.as_ref().unwrap();
+            } else if let Some(cfg) = state
+                .radio_lr
+                .as_ref()
+                .filter(|_| state.is_transmitting_lr())
+            {
                 (
                     true,
                     "lr".into(),
