@@ -71,7 +71,7 @@ private _lrRm = if (_isLocal) then { RMTFAR_radioLrRangeM } else { _unit getVari
 // Caché ~250 ms; el recálculo se reparte en 8 fases según UID para no hacer N−1 raycasts en un solo frame.
 private _los = 1;
 if (!_isLocal && {_alive} && {!isNull player} && {alive player}) then {
-    private _ck = format ["rmtfar_los_%1", name _unit];
+    private _ck = format ["rmtfar_los_%1", netId _unit];
     private _cached = missionNamespace getVariable [_ck, [1, -1]];
     private _now = diag_tickTime;
     private _lastT = _cached select 1;
